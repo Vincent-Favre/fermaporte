@@ -1,0 +1,2651 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fermaporte — Gestion des chantiers</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary: #2c3e50;
+  --primary-light: #34495e;
+  --accent: #e67e22;
+  --accent-hover: #d35400;
+  --bg: #f0f2f5;
+  --white: #ffffff;
+  --border: #dde1e7;
+  --text: #2c3e50;
+  --text-light: #7f8c8d;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --radius: 10px;
+}
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+/* ── HEADER ── */
+.app-header {
+  background: var(--primary);
+  color: white;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  position: sticky; top: 0; z-index: 200;
+}
+.logo { display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 700; text-decoration: none; color: white; }
+.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: rgba(255,255,255,0.6); }
+.breadcrumb .sep { font-size: 10px; }
+.breadcrumb .current { color: white; font-weight: 600; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.header-status-badge { font-size: 11px; }
+
+/* ── VIEWS ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── DASHBOARD ── */
+.dashboard { max-width: 1400px; margin: 0 auto; padding: 22px 18px; }
+
+.summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.stat-card { background: var(--white); border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow); cursor: pointer; transition: box-shadow 0.15s, transform 0.1s; user-select: none; }
+.stat-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.stat-card.active { outline: 2px solid var(--accent); outline-offset: 1px; background: #fff8f2; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-light); margin-bottom: 5px; }
+.stat-val { font-size: 26px; font-weight: 700; }
+.stat-val.blue { color: #3498db; }
+.stat-val.orange { color: var(--accent); }
+.stat-val.green { color: #27ae60; }
+.stat-val.purple { color: #9b59b6; }
+
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.toolbar-right { margin-left: auto; }
+.search-wrap { position: relative; }
+.search-wrap input { padding: 8px 12px 8px 32px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; width: 210px; outline: none; background: white; }
+.search-wrap input:focus { border-color: var(--accent); }
+.search-wrap::before { content: '⌕'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 15px; color: var(--text-light); pointer-events: none; }
+select.flt { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: white; outline: none; cursor: pointer; color: var(--text); }
+.count-label { font-size: 12px; color: var(--text-light); }
+
+.table-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 850px; }
+thead th { background: var(--primary); color: white; padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; }
+thead th:first-child { border-radius: 10px 0 0 0; }
+thead th:last-child { border-radius: 0 10px 0 0; }
+tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f7f9fc; }
+tbody td { padding: 10px 14px; font-size: 13px; vertical-align: middle; }
+.td-client strong { display: block; }
+.td-client small { color: var(--text-light); font-size: 11px; }
+.td-mono { font-family: monospace; font-size: 12px; }
+.td-chf { white-space: nowrap; font-weight: 600; }
+.chk-yes { color: #27ae60; font-weight: bold; }
+.chk-no { color: #e74c3c; }
+.chk-empty { color: var(--text-light); }
+
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text-light); }
+.empty-state .big { font-size: 44px; margin-bottom: 10px; }
+.empty-state p { margin-bottom: 14px; font-size: 15px; }
+
+/* ── STATUS BADGES ── */
+.badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; color: white; }
+.badge-attente-offre  { background: #95a5a6; }
+.badge-offre-envoyee  { background: #3498db; }
+.badge-confirme       { background: #9b59b6; }
+.badge-materiel       { background: #e67e22; }
+.badge-attente-pose   { background: #f39c12; }
+.badge-pose           { background: #27ae60; }
+.badge-facture        { background: #2ecc71; color: #1a6e3c; }
+.badge-termine        { background: #bdc3c7; color: #555; }
+.badge-annule         { background: #e74c3c; }
+
+/* ── BUTTONS ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+.btn:hover { opacity: 0.88; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); color: white; }
+.btn-secondary { background: var(--primary); color: white; }
+.btn-ghost { background: white; color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: #e74c3c; color: white; }
+.btn-success { background: #27ae60; color: white; }
+.btn-sm { padding: 5px 11px; font-size: 12px; border-radius: 6px; }
+.btn-upload { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px 24px; font-size: 14px; border-radius: 10px; border: none; cursor: pointer; gap: 8px; display: inline-flex; align-items: center; }
+.btn-upload:hover { opacity: 0.9; }
+
+/* ── CHANTIER DETAIL ── */
+.chantier-view { max-width: 1000px; margin: 0 auto; padding: 20px 18px 40px; }
+
+.chantier-hero {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 24px 0;
+  margin-bottom: 18px;
+}
+.chantier-hero-top { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.chantier-hero-info { flex: 1; }
+.chantier-hero-info h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.chantier-hero-info .meta { font-size: 13px; color: var(--text-light); display: flex; gap: 14px; flex-wrap: wrap; }
+.chantier-hero-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* TABS */
+.tabs { display: flex; gap: 0; border-top: 1px solid var(--border); margin-top: 16px; }
+.tab-btn {
+  padding: 12px 18px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-light);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── FORM LAYOUT ── */
+.module-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 14px; }
+.module-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-grid.g3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-grid.g1 { grid-template-columns: 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group.span2 { grid-column: span 2; }
+label.lbl { font-size: 11px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.3px; }
+input[type=text], input[type=date], input[type=number], input[type=email], select, textarea {
+  padding: 8px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--text); background: white; outline: none; font-family: inherit; width: 100%; transition: border-color 0.18s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 70px; }
+input[readonly] { background: #f8f9fa; color: var(--text-light); }
+
+/* CHECKBOXES */
+.check-group { display: flex; flex-direction: column; gap: 8px; }
+.check-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; transition: background 0.1s; }
+.check-item:hover { background: #f8f9fa; }
+.check-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.check-item label { cursor: pointer; font-size: 13px; font-weight: 500; margin: 0; }
+.check-item .check-extra { flex: 1; }
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* CHECK TABLE */
+.check-table { width: 100%; border-collapse: collapse; }
+.check-table th { background: var(--bg); padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-light); }
+.check-table td { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+.check-table .radio-group { display: flex; gap: 12px; }
+.check-table .radio-group label { display: flex; align-items: center; gap: 4px; font-weight: 400; cursor: pointer; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--text); }
+.check-table .radio-group input[type=radio] { accent-color: var(--accent); }
+
+/* ── CALCULATION MODULE ── */
+.calc-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin-bottom: 10px; }
+.calc-label { font-size: 13px; font-weight: 500; }
+.calc-op { font-size: 16px; color: var(--text-light); text-align: center; }
+.calc-result-box { background: var(--bg); border-radius: var(--radius); padding: 18px 20px; text-align: center; }
+.calc-result-box .big-price { font-size: 36px; font-weight: 800; color: var(--primary); letter-spacing: -1px; }
+.calc-result-box .big-price-label { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+.calc-section { background: var(--bg); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+.calc-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-light); margin-bottom: 10px; }
+.calc-line { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); gap: 12px; }
+.calc-line:last-child { border-bottom: none; }
+.calc-line label { font-size: 13px; flex: 1; }
+.calc-line .val-display { font-size: 13px; font-weight: 600; min-width: 80px; text-align: right; color: var(--primary); }
+.calc-line input[type=number] { width: 110px; text-align: right; }
+.calc-total-line { display: flex; justify-content: space-between; padding: 10px 0; font-weight: 700; font-size: 14px; border-top: 2px solid var(--border); margin-top: 8px; }
+.separator { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ── COMMANDE TABLE ── */
+.commande-table { width: 100%; border-collapse: collapse; }
+.commande-table th { background: var(--bg); padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-light); }
+.commande-table td { padding: 7px 8px; border-top: 1px solid var(--border); vertical-align: middle; }
+.commande-table input, .commande-table select { font-size: 12px; padding: 5px 8px; }
+.commande-table .btn-sm { padding: 3px 8px; }
+.commande-table tr.done td { opacity: 0.5; }
+
+/* ── RESUME TAB ── */
+.resume-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.info-block { background: var(--bg); border-radius: 8px; padding: 14px 16px; }
+.info-block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-light); margin-bottom: 10px; }
+.info-line { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(0,0,0,0.07); font-size: 13px; gap: 12px; }
+.info-line:last-child { border-bottom: none; }
+.info-key { color: var(--text-light); flex-shrink: 0; }
+.info-val { font-weight: 500; text-align: right; word-break: break-word; }
+.info-block.full { grid-column: 1 / -1; }
+
+/* ── PHOTO UPLOAD ZONE ── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafbfc;
+}
+.upload-zone:hover { border-color: var(--accent); background: #fff8f4; }
+.upload-zone.dragover { border-color: var(--accent); background: #fff8f4; }
+.upload-zone .upload-icon { font-size: 36px; margin-bottom: 10px; }
+.upload-zone p { color: var(--text-light); font-size: 13px; }
+.upload-zone strong { color: var(--accent); }
+.upload-preview { max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 14px; box-shadow: var(--shadow); }
+
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-overlay.active { opacity: 1; pointer-events: all; }
+.modal { background: white; border-radius: 14px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); transform: translateY(16px); transition: transform 0.2s; }
+.modal-overlay.active .modal { transform: translateY(0); }
+.modal-header { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; border-radius: 14px 14px 0 0; z-index: 1; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-light); padding: 4px 8px; border-radius: 6px; }
+.modal-close:hover { background: var(--bg); }
+.modal-body { padding: 18px 22px; }
+.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; position: sticky; bottom: 0; background: white; border-radius: 0 0 14px 14px; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 22px; right: 22px; background: var(--primary); color: white; padding: 11px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 16px rgba(0,0,0,0.2); transform: translateY(70px); opacity: 0; transition: all 0.3s; z-index: 999; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: #27ae60; }
+.toast.error { background: #e74c3c; }
+
+/* ── SAVE BAR ── */
+.save-bar { position: sticky; bottom: 0; background: white; border-top: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: flex-end; gap: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.06); margin: 0 -24px -22px; border-radius: 0 0 var(--radius) var(--radius); }
+
+/* ── SETTINGS ── */
+.settings-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 14px; max-width: 600px; }
+.settings-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+.period-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+/* ── PLANNING ── */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-head { background: var(--primary); color: white; text-align: center; padding: 9px 4px; font-size: 12px; font-weight: 600; }
+.cal-cell { min-height: 90px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 5px; vertical-align: top; background: white; }
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell.other-month { background: #f8f9fa; }
+.cal-cell.today { background: #fff8f0; }
+.cal-cell.today .cal-day-num { background: var(--accent); color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+.cal-day-num { font-size: 12px; font-weight: 600; color: var(--text-light); margin-bottom: 4px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+.cal-event { font-size: 10px; padding: 2px 5px; border-radius: 3px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; line-height: 1.4; }
+.cal-event.pose { background: #d5f5e3; color: #1a8a4a; border-left: 2px solid #27ae60; }
+.cal-event.livraison { background: #d6eaf8; color: #1a5f8a; border-left: 2px solid #3498db; }
+.cal-event.both { background: #e8daef; color: #6c3483; border-left: 2px solid #9b59b6; }
+.cal-event.commande { background: #fdebd0; color: #b9621a; border-left: 2px solid #e67e22; }
+.cal-event.faire { background: #d1f2eb; color: #0e7a61; border-left: 2px solid #16a085; }
+
+@media (max-width:640px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid.g3 { grid-template-columns: 1fr; }
+  .resume-grid { grid-template-columns: 1fr; }
+  .check-grid { grid-template-columns: 1fr; }
+  .tabs { overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ HEADER ════════════ -->
+<header class="app-header">
+  <a class="logo" href="#" onclick="showDashboard()">
+    <img id="header-logo" src="" alt="Fermaporte" style="height:32px;display:block">
+  </a>
+  <div class="breadcrumb" id="breadcrumb" style="display:none">
+    <span class="sep">›</span>
+    <span class="current" id="bc-client"></span>
+  </div>
+  <div class="header-right">
+    <span id="header-badge"></span>
+    <button class="btn btn-ghost btn-sm" id="btn-commandes" onclick="showCommandesGlobal()" title="Suivi commandes">📦 Commandes</button>
+    <button class="btn btn-ghost btn-sm" id="btn-planning" onclick="showPlanning()" title="Planning des poses">📅 Planning</button>
+    <button class="btn btn-ghost btn-sm" id="btn-stats" onclick="showStats()" title="Statistiques">📊 Stats</button>
+    <button class="btn btn-ghost btn-sm" id="btn-settings" onclick="showSettings()" title="Paramètres">⚙️</button>
+    <button class="btn btn-primary btn-sm" id="btn-new" onclick="openNewModal()">+ Nouveau chantier</button>
+  </div>
+</header>
+
+<!-- ════════════ VIEW: DASHBOARD ════════════ -->
+<div class="view active" id="view-dashboard">
+  <div class="dashboard">
+    <div class="summary-row" id="summary-row"></div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <input type="text" id="search" placeholder="Rechercher client, référence..." oninput="renderTable()">
+      </div>
+      <select class="flt" id="flt-statut" onchange="cardFilter=null;renderSummary();renderTable()">
+        <option value="">Tous les statuts</option>
+        <option value="attente-offre">En attente d'offre</option>
+        <option value="offre-envoyee">Offre envoyée</option>
+        <option value="confirme">Confirmé</option>
+        <option value="materiel">Matériel commandé</option>
+        <option value="attente-pose">En attente de pose</option>
+        <option value="pose">Posé</option>
+        <option value="facture">Facturé</option>
+        <option value="termine">Terminé</option>
+        <option value="annule">Annulé</option>
+      </select>
+      <select class="flt" id="flt-type" onchange="cardFilter=null;renderSummary();renderTable()">
+        <option value="">Tous les types</option>
+        <option value="Porte de garage">Porte de garage</option>
+        <option value="Portail">Portail</option>
+        <option value="Dépannage / SAV">Dépannage / SAV</option>
+        <option value="Maintenance">Maintenance</option>
+        <option value="Autre">Autre</option>
+      </select>
+      <span class="count-label" id="count-label"></span>
+      <div class="toolbar-right">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportJSON()" title="Sauvegarde complète de toutes les données">💾 Backup JSON</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()" title="Restaurer depuis un fichier backup JSON">↑ Importer JSON</button>
+        <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importJSON(this)">
+      </div>
+    </div>
+    <div class="table-card">
+      <table><thead><tr id="thead-row"></tr></thead>
+      <tbody id="tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ VIEW: CHANTIER ════════════ -->
+<div class="view" id="view-chantier">
+  <div class="chantier-view">
+    <div class="chantier-hero">
+      <div class="chantier-hero-top">
+        <div class="chantier-hero-info">
+          <h1 id="ch-title">—</h1>
+          <div class="meta" id="ch-meta"></div>
+        </div>
+        <div class="chantier-hero-actions">
+          <button class="btn btn-ghost btn-sm" onclick="showDashboard()">← Retour</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditModal()">✏️ Modifier</button>
+          <button class="btn btn-ghost btn-sm" onclick="duplicateChantier()" title="Créer un nouveau chantier basé sur celui-ci">⧉ Dupliquer</button>
+          <span id="header-statut-badge" style="display:flex;align-items:center;gap:8px">
+            <button id="btn-annule" class="btn btn-sm" style="background:#e74c3c;color:white;font-size:11px;padding:4px 10px" onclick="annulerChantier()" title="Annuler ce chantier">✕ Annuler</button>
+            <button id="btn-reactiver" class="btn btn-sm" style="background:#27ae60;color:white;font-size:11px;padding:4px 10px;display:none" onclick="reactiverChantier()" title="Réactiver et recalculer le statut">↩ Réactiver</button>
+          </span>
+        </div>
+      </div>
+      <div class="tabs" id="tabs-bar">
+        <button class="tab-btn active" onclick="switchTab('resume',this)">📋 Résumé</button>
+        <button class="tab-btn" onclick="switchTab('mesure',this)">📐 Prise de mesure</button>
+        <button class="tab-btn" onclick="switchTab('calc',this)">🧮 Calculation</button>
+        <button class="tab-btn" onclick="switchTab('commande',this)">📦 Commande</button>
+        <button class="tab-btn" onclick="switchTab('montage',this)">🔧 Montage</button>
+      </div>
+    </div>
+
+    <!-- TAB: RÉSUMÉ -->
+    <div class="tab-content active" id="tab-resume">
+      <div class="resume-grid" id="resume-content"></div>
+    </div>
+
+    <!-- TAB: PRISE DE MESURE -->
+    <div class="tab-content" id="tab-mesure">
+      <!-- Upload zone -->
+      <div class="module-card">
+        <div class="module-title">
+          Importer depuis photo / scan
+          <span style="font-size:11px;color:var(--text-light);font-weight:400;text-transform:none;letter-spacing:0">Remplissage automatique par IA — bientôt disponible</span>
+        </div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="handleDragOver(event)" ondrop="handleDrop(event)">
+          <div class="upload-icon">📷</div>
+          <p><strong>Cliquer pour choisir</strong> ou glisser-déposer une photo / PDF</p>
+          <p style="font-size:11px;margin-top:6px">JPG, PNG, PDF acceptés</p>
+          <img id="upload-preview" class="upload-preview" style="display:none">
+        </div>
+        <input type="file" id="file-input" accept="image/*,.pdf" style="display:none" onchange="handleFileSelect(event)">
+      </div>
+
+      <!-- Formulaire -->
+      <form id="form-mesure" onsubmit="saveMesure(event)">
+        <div class="module-card">
+          <div class="module-title">Description de la porte</div>
+          <div class="form-grid">
+            <div class="form-group full">
+              <label class="lbl">Type de porte</label>
+              <input type="text" id="m-type-porte" placeholder="Ex: Sectionnelle résidentielle, Basculante, Portail coulissant...">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Larg. vide de passage (mm)</label>
+              <input type="number" id="m-larg" placeholder="Ex: 2500">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Haut. vide de passage (mm)</label>
+              <input type="number" id="m-haut" placeholder="Ex: 2200">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Écoinçon gauche (mm)</label>
+              <input type="number" id="m-ecoincon-g" placeholder="Ex: 150">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Écoinçon droit (mm)</label>
+              <input type="number" id="m-ecoincon-d" placeholder="Ex: 150">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Imposte disponible (mm)</label>
+              <input type="number" id="m-imposte" placeholder="Ex: 400">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Type de panneau</label>
+              <input type="text" id="m-type-panneau" placeholder="Ex: ISO 40, Nervuré, Lisse...">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Couleur</label>
+              <input type="text" id="m-couleur" placeholder="Ex: RAL 7016, Blanc 9016...">
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-title">Options</div>
+          <div class="check-grid">
+            <div class="check-item"><input type="checkbox" id="m-imposte-pan"><label for="m-imposte-pan">Imposte panneaux</label></div>
+            <div class="check-item"><input type="checkbox" id="m-moteur"><label for="m-moteur">Moteur</label></div>
+            <div class="check-item"><input type="checkbox" id="m-portillon"><label for="m-portillon">Portillon</label></div>
+            <div class="check-item"><input type="checkbox" id="m-section-vitree"><label for="m-section-vitree">Section vitrée</label></div>
+            <div class="check-item"><input type="checkbox" id="m-seuil-inox"><label for="m-seuil-inox">Seuil inox</label></div>
+            <div class="check-item"><input type="checkbox" id="m-hublots"><label for="m-hublots">Hublots</label></div>
+            <div class="check-item"><input type="checkbox" id="m-digicode"><label for="m-digicode">Digicode</label></div>
+            <div class="check-item"><input type="checkbox" id="m-deverouillage"><label for="m-deverouillage">Déverouillage ext.</label></div>
+            <div class="check-item"><input type="checkbox" id="m-depose"><label for="m-depose">Dépose &amp; évacuation porte existante</label></div>
+          </div>
+          <div class="form-group" style="margin-top:10px">
+            <label class="lbl">Autre (préciser)</label>
+            <input type="text" id="m-autre" placeholder="Préciser si nécessaire...">
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-title">Check — État des lieux</div>
+          <table class="check-table">
+            <thead><tr><th>Élément</th><th>OK</th><th>Pas OK</th><th>Remarques</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Embrasure</td>
+                <td><input type="radio" name="chk-embrasure" value="ok"></td>
+                <td><input type="radio" name="chk-embrasure" value="pasok"></td>
+                <td><input type="text" id="rem-embrasure" placeholder="Remarque..."></td>
+              </tr>
+              <tr>
+                <td>Sol</td>
+                <td><input type="radio" name="chk-sol" value="ok"></td>
+                <td><input type="radio" name="chk-sol" value="pasok"></td>
+                <td><input type="text" id="rem-sol" placeholder="Remarque..."></td>
+              </tr>
+              <tr>
+                <td>Plafond</td>
+                <td><input type="radio" name="chk-plafond" value="ok"></td>
+                <td><input type="radio" name="chk-plafond" value="pasok"></td>
+                <td><input type="text" id="rem-plafond" placeholder="Remarque..."></td>
+              </tr>
+              <tr>
+                <td>Électricité moteur</td>
+                <td><input type="radio" name="chk-elec" value="ok"></td>
+                <td><input type="radio" name="chk-elec" value="pasok"></td>
+                <td><input type="text" id="rem-elec" placeholder="Remarque..."></td>
+              </tr>
+              <tr>
+                <td>Autre</td>
+                <td><input type="radio" name="chk-autre" value="ok"></td>
+                <td><input type="radio" name="chk-autre" value="pasok"></td>
+                <td><input type="text" id="rem-autre-chk" placeholder="Remarque..."></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="module-card">
+          <div class="module-title">Notes complémentaires</div>
+          <textarea id="m-notes" rows="3" placeholder="Observations, contraintes techniques, accès chantier..."></textarea>
+          <div class="save-bar">
+            <button type="submit" class="btn btn-primary">💾 Enregistrer la prise de mesure</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- TAB: CALCULATION -->
+    <div class="tab-content" id="tab-calc">
+      <form id="form-calc" onsubmit="saveCalc(event)">
+        <div class="module-card">
+          <div class="module-title">Paramètres de la calculation</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="lbl">Prix Condor (EUR) *</label>
+              <input type="number" id="c-prix-eur" step="0.01" placeholder="Ex: 1250.00" oninput="calcUpdate()">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Taux EUR → CHF <small style="color:var(--accent);cursor:pointer" onclick="showSettings()">(modifier dans ⚙️)</small></label>
+              <input type="number" id="c-taux" step="0.0001" readonly>
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-title">Détail du calcul</div>
+
+          <div class="calc-section">
+            <div class="calc-section-title">Prix d'achat</div>
+            <div class="calc-line">
+              <label>Prix Condor en CHF</label>
+              <span class="val-display" id="cv-chf">—</span>
+            </div>
+            <div class="calc-line">
+              <label>Douane (<span id="cv-taux-douane-pct">—</span>%)</label>
+              <span class="val-display" id="cv-douane">—</span>
+            </div>
+            <div class="calc-total-line">
+              <span>Prix d'achat total CHF</span>
+              <span id="cv-achat-total">—</span>
+            </div>
+          </div>
+
+          <div class="calc-section">
+            <div class="calc-section-title">Coûts additionnels</div>
+            <div class="calc-line">
+              <label>Pose (CHF)</label>
+              <input type="number" id="c-pose" step="1" placeholder="Ex: 800" oninput="calcUpdate()">
+            </div>
+            <div class="calc-line">
+              <label>Bureau / Télécommandes (CHF)</label>
+              <input type="number" id="c-bureau" step="1" placeholder="Ex: 150" oninput="calcUpdate()">
+            </div>
+            <div class="calc-line">
+              <label>Fournitures annexes (CHF)</label>
+              <input type="number" id="c-annexes" step="1" placeholder="Ex: 0" oninput="calcUpdate()">
+            </div>
+            <div class="calc-total-line">
+              <span>Sous-total</span>
+              <span id="cv-sous-total">—</span>
+            </div>
+          </div>
+
+          <div class="calc-section">
+            <div class="calc-section-title">Marge &amp; Prix de vente</div>
+            <div class="calc-line">
+              <label>Marge (<span id="cv-marge-pct">—</span>%)</label>
+              <span class="val-display" id="cv-marge">—</span>
+            </div>
+            <div class="calc-line">
+              <label>Transport (CHF)</label>
+              <input type="number" id="c-transport" step="1" placeholder="Ex: 120" oninput="calcUpdate()">
+            </div>
+            <div class="calc-line">
+              <label>Arrondi au</label>
+              <select id="c-arrondi" onchange="calcUpdate()" style="width:120px">
+                <option value="1">1 CHF</option>
+                <option value="5">5 CHF</option>
+                <option value="10">10 CHF</option>
+                <option value="50" selected>50 CHF</option>
+                <option value="100">100 CHF</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="calc-result-box">
+            <div class="big-price" id="cv-pv-final">— CHF</div>
+            <div class="big-price-label">Prix de vente TTC (arrondi)</div>
+          </div>
+
+          <div style="margin-top:12px;padding:12px;background:#fff8f0;border-radius:8px;border:1px solid #fde0c0;font-size:12px;color:var(--text-light)">
+            💡 Ce montant est à saisir dans Winbiz pour établir l'offre.
+          </div>
+          <div class="save-bar">
+            <button type="submit" class="btn btn-primary">💾 Enregistrer la calculation</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- TAB: COMMANDE -->
+    <div class="tab-content" id="tab-commande">
+      <div class="module-card">
+        <div class="module-title">
+          Feuille de commande
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-secondary btn-sm" onclick="printCommandePDF()">📄 PDF</button>
+            <button class="btn btn-primary btn-sm" onclick="addCommandeRow()">+ Ajouter</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--text-light);margin-bottom:14px">Listez ici tout le matériel à commander. Cochez une ligne une fois la commande passée.</p>
+        <div style="overflow-x:auto">
+          <table class="commande-table">
+            <thead><tr>
+              <th style="width:32px"></th>
+              <th>Produit / Description</th>
+              <th>Fournisseur</th>
+              <th>Qté</th>
+              <th>Délai souhaité</th>
+              <th>Commandé le</th>
+              <th>Reçu le</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="commande-tbody"></tbody>
+          </table>
+        </div>
+        <div class="save-bar">
+          <button class="btn btn-primary" onclick="saveCommande()">💾 Enregistrer les commandes</button>
+        </div>
+      </div>
+
+      <div class="module-card">
+        <div class="module-title">
+          À fabriquer / À faire
+          <button class="btn btn-ghost btn-sm" onclick="addFaireRow()">+ Ajouter</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="commande-table">
+            <thead><tr>
+              <th style="width:32px"></th>
+              <th>Chose à faire</th>
+              <th>Endroit</th>
+              <th>Délai</th>
+              <th>À faire par</th>
+              <th>Fait le</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="faire-tbody"></tbody>
+          </table>
+        </div>
+        <div class="save-bar">
+          <button class="btn btn-primary" onclick="saveFaire()">💾 Enregistrer les tâches</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: MONTAGE -->
+    <div class="tab-content" id="tab-montage">
+      <form id="form-montage" onsubmit="saveMontage(event)">
+        <div class="module-card">
+          <div class="module-title">Informations de pose</div>
+          <div id="montage-previsions" style="background:#f7f9fc;border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text-light);display:none">
+            📅 <strong style="color:var(--text)">Planifié :</strong>
+            <span id="mo-info-pose"></span>
+            <span id="mo-info-livraison"></span>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="lbl">Date de pose effective</label>
+              <input type="date" id="mo-date">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Monteur(s)</label>
+              <div id="mo-monteurs-wrap"></div>
+            </div>
+            <div class="form-group">
+              <label class="lbl">N° de porte (série)</label>
+              <input type="text" id="mo-no-porte" placeholder="Ex: 2024-1234">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Date de livraison effective</label>
+              <input type="date" id="mo-date-livraison">
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-title">Check-list de pose</div>
+          <table class="check-table">
+            <thead><tr><th>Étape</th><th>OK</th><th>Pas OK</th><th>Remarques</th></tr></thead>
+            <tbody id="montage-checklist"></tbody>
+          </table>
+        </div>
+
+        <div class="module-card">
+          <div class="module-title">Finitions après pose</div>
+          <div class="module-title" style="font-size:11px;border:none;margin-bottom:8px;padding:0">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addFinitionRow()">+ Ajouter une finition</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="commande-table">
+              <thead><tr>
+                <th style="width:32px"></th>
+                <th>Finition à faire</th>
+                <th>À commander ?</th>
+                <th>Fait le</th>
+                <th></th>
+              </tr></thead>
+              <tbody id="finitions-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-title">Signature &amp; Validation</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="lbl">Nom du client (confirmation)</label>
+              <input type="text" id="mo-sig-nom" placeholder="Prénom Nom">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Date de validation client</label>
+              <input type="date" id="mo-sig-date">
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px">
+            <label class="lbl">Remarques finales</label>
+            <textarea id="mo-remarques" rows="3" placeholder="Observations, travaux restants, prochaine intervention..."></textarea>
+          </div>
+          <div class="save-bar">
+            <button type="submit" class="btn btn-primary">💾 Enregistrer le rapport de montage</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ VIEW: SUIVI COMMANDES & TÂCHES ════════════ -->
+<div class="view" id="view-commandes">
+  <div class="dashboard">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="showDashboard()">← Retour</button>
+      <h2 style="font-size:18px;font-weight:700">Suivi des commandes &amp; tâches</h2>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <!-- Filtres rapides période -->
+        <div id="quick-period-btns" style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm period-btn active" data-period="" onclick="setPeriod(this,'')">Tout</button>
+          <button class="btn btn-ghost btn-sm period-btn" data-period="retard" onclick="setPeriod(this,'retard')" style="color:#e74c3c;border-color:#e74c3c">⚠️ En retard</button>
+          <button class="btn btn-ghost btn-sm period-btn" data-period="semaine" onclick="setPeriod(this,'semaine')">Cette semaine</button>
+          <button class="btn btn-ghost btn-sm period-btn" data-period="mois" onclick="setPeriod(this,'mois')">Ce mois</button>
+          <button class="btn btn-ghost btn-sm period-btn" data-period="custom" onclick="setPeriod(this,'custom')">Autre période…</button>
+        </div>
+        <!-- Plage personnalisée (masquée par défaut) -->
+        <div id="custom-period" style="display:none;align-items:center;gap:6px">
+          <input type="date" id="flt-date-from" onchange="renderCommandesGlobal()" class="flt" style="padding:6px 8px">
+          <span style="font-size:12px;color:var(--text-light)">au</span>
+          <input type="date" id="flt-date-to" onchange="renderCommandesGlobal()" class="flt" style="padding:6px 8px">
+        </div>
+        <select class="flt" id="flt-cmd-type" onchange="renderCommandesGlobal()">
+          <option value="">Commandes &amp; tâches</option>
+          <option value="commande">Commandes uniquement</option>
+          <option value="faire">Tâches uniquement</option>
+        </select>
+        <select class="flt" id="flt-cmd-statut" onchange="renderCommandesGlobal()">
+          <option value="">Tous les statuts</option>
+          <option value="acommander">À commander / À faire</option>
+          <option value="commande">Commandé</option>
+          <option value="recu">Reçu / Fait</option>
+        </select>
+        <select class="flt" id="flt-cmd-fournisseur" onchange="renderCommandesGlobal()">
+          <option value="">Tous les fournisseurs</option>
+        </select>
+      </div>
+    </div>
+    <div class="summary-row" id="cmd-summary-row"></div>
+    <div class="table-card">
+      <table>
+        <thead><tr>
+          <th>Statut</th>
+          <th>Type</th>
+          <th>Client / Chantier</th>
+          <th>Produit / Tâche</th>
+          <th>Fournisseur / Responsable</th>
+          <th>Qté</th>
+          <th>Délai souhaité</th>
+          <th>Commandé / Fait le</th>
+          <th>Reçu le</th>
+        </tr></thead>
+        <tbody id="cmd-global-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ VIEW: PLANNING ════════════ -->
+<div class="view" id="view-planning">
+  <div class="dashboard">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="showDashboard()">← Retour</button>
+      <h2 style="font-size:18px;font-weight:700">Planning des poses</h2>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="planningNav(-1)">‹</button>
+        <span id="planning-month-label" style="font-size:15px;font-weight:600;min-width:160px;text-align:center"></span>
+        <button class="btn btn-ghost btn-sm" onclick="planningNav(+1)">›</button>
+        <button class="btn btn-secondary btn-sm" onclick="planningGoToday()">Aujourd'hui</button>
+      </div>
+    </div>
+    <!-- Légende -->
+    <div style="display:flex;gap:12px;margin-bottom:14px;font-size:12px;align-items:center;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:#27ae60;display:inline-block"></span>Pose prévue</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:#3498db;display:inline-block"></span>Livraison matériel</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:#9b59b6;display:inline-block"></span>Pose + Livraison même jour</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:#e67e22;display:inline-block"></span>📬 Commande attendue</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:#16a085;display:inline-block"></span>✅ Tâche à faire</span>
+    </div>
+    <div class="table-card" style="overflow:hidden">
+      <div id="planning-calendar"></div>
+    </div>
+    <!-- Liste du mois -->
+    <div class="table-card" style="margin-top:16px;padding:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px">Agenda du mois</div>
+      <div id="planning-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ VIEW: STATS ════════════ -->
+<div class="view" id="view-stats">
+  <div class="dashboard">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <button class="btn btn-ghost btn-sm" onclick="showDashboard()">← Retour</button>
+      <h2 style="font-size:18px;font-weight:700">Statistiques</h2>
+    </div>
+    <!-- KPIs -->
+    <div class="summary-row" id="stats-kpi-row" style="margin-bottom:20px"></div>
+    <!-- Charts row -->
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px">
+      <div class="table-card" style="padding:20px">
+        <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:14px">CA mensuel — 12 derniers mois (CHF)</div>
+        <div id="chart-ca-monthly"></div>
+      </div>
+      <div class="table-card" style="padding:20px">
+        <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:14px">Répartition par type</div>
+        <div id="chart-type-donut"></div>
+      </div>
+    </div>
+    <!-- Funnel -->
+    <div class="table-card" style="padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:14px">Entonnoir commercial</div>
+      <div id="chart-funnel"></div>
+    </div>
+    <!-- Offers table -->
+    <div class="table-card" style="padding:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:14px">Offres en attente de réponse</div>
+      <div id="stats-offres-table"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ VIEW: SETTINGS ════════════ -->
+<div class="view" id="view-settings">
+  <div class="dashboard">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <button class="btn btn-ghost btn-sm" onclick="showDashboard()">← Retour</button>
+      <h2 style="font-size:18px;font-weight:700">Paramètres</h2>
+    </div>
+    <div class="settings-card">
+      <div class="settings-title">Taux de change &amp; Coefficients</div>
+      <div class="form-grid g1">
+        <div class="form-group">
+          <label class="lbl">Taux EUR → CHF</label>
+          <input type="number" id="s-taux" step="0.0001" placeholder="Ex: 0.9650">
+        </div>
+        <div class="form-group">
+          <label class="lbl">Taux de douane (%)</label>
+          <input type="number" id="s-douane" step="0.1" placeholder="Ex: 3.0">
+        </div>
+        <div class="form-group">
+          <label class="lbl">Marge par défaut (%)</label>
+          <input type="number" id="s-marge" step="0.5" placeholder="Ex: 35">
+        </div>
+        <div class="form-group">
+          <label class="lbl">Transport par défaut (CHF)</label>
+          <input type="number" id="s-transport" step="1" placeholder="Ex: 120">
+        </div>
+        <div class="form-group">
+          <label class="lbl">Bureau / Télécommandes par défaut (CHF)</label>
+          <input type="number" id="s-bureau" step="1" placeholder="Ex: 150">
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <button class="btn btn-primary" onclick="saveSettings()">💾 Enregistrer les paramètres</button>
+      </div>
+    </div>
+
+    <div class="settings-card" style="margin-top:16px">
+      <div class="settings-title">Équipe — Monteurs &amp; collaborateurs</div>
+      <p style="font-size:12px;color:var(--text-light);margin-bottom:12px">Ces noms seront proposés en sélection dans les formulaires (montage, tâches, prise de mesure).</p>
+      <div id="monteurs-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="s-monteur-input" placeholder="Prénom Nom" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:200px" onkeydown="if(event.key==='Enter'){event.preventDefault();addMonteur()}">
+        <button class="btn btn-secondary btn-sm" onclick="addMonteur()">+ Ajouter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ MODAL NOUVEAU/ÉDITION ════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Nouveau chantier</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="chantier-form" onsubmit="saveChantierMeta(event)">
+        <div class="form-grid" style="margin-bottom:14px">
+          <div class="form-group full">
+            <label class="lbl">Nom du client *</label>
+            <input type="text" id="f-client" required placeholder="Ex: Dupont Pierre">
+          </div>
+          <div class="form-group full">
+            <label class="lbl">Adresse de pose</label>
+            <input type="text" id="f-adresse" placeholder="Rue, NPA Localité">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Téléphone</label>
+            <input type="text" id="f-tel">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Email</label>
+            <input type="text" id="f-email">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Référence</label>
+            <input type="text" id="f-ref" placeholder="Ex: 2025-042">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <div style="background:#f0f8f0;border:1px solid #b7ddb7;border-radius:8px;padding:8px 12px;font-size:12px;color:#2d6a2d">
+              ✓ <strong>Statut calculé automatiquement</strong> — mis à jour à chaque sauvegarde selon les données saisies dans les différents onglets.
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="lbl">Type de travail</label>
+            <select id="f-type">
+              <option value="">— Choisir —</option>
+              <option value="Porte de garage">Porte de garage</option>
+              <option value="Portail">Portail</option>
+              <option value="Dépannage / SAV">Dépannage / SAV</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="lbl">Validé par le client le</label>
+            <input type="date" id="f-date-val">
+          </div>
+          <div class="form-group">
+            <label class="lbl">N° Offre Winbiz</label>
+            <input type="text" id="f-no-offre">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Date d'envoi de l'offre</label>
+            <input type="date" id="f-d-offre">
+          </div>
+          <div class="form-group">
+            <label class="lbl">N° Confirmation</label>
+            <input type="text" id="f-no-conf">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Montant TTC (CHF)</label>
+            <input type="number" id="f-montant" step="0.05">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Date livraison matériel</label>
+            <input type="date" id="f-livraison">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Date de pose prévue</label>
+            <input type="date" id="f-d-pose">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Acompte (CHF)</label>
+            <input type="number" id="f-acompte" step="0.05">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Date acompte</label>
+            <input type="date" id="f-d-acompte">
+          </div>
+          <div class="form-group">
+            <label class="lbl">2ème acompte (CHF)</label>
+            <input type="number" id="f-acompte2" step="0.05">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Date 2ème acompte</label>
+            <input type="date" id="f-d-acompte2">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Facture finale (CHF)</label>
+            <input type="number" id="f-facture" step="0.05">
+          </div>
+          <div class="form-group">
+            <label class="lbl">Date facture finale</label>
+            <input type="date" id="f-d-facture">
+          </div>
+          <div class="form-group full">
+            <label class="lbl">Remarques</label>
+            <textarea id="f-remarques" rows="3"></textarea>
+          </div>
+        </div>
+        <input type="hidden" id="f-id">
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-del" style="display:none;margin-right:auto" onclick="deleteChantier()">Supprimer</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="document.getElementById('chantier-form').requestSubmit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════ CONSTANTS ════════
+const STORE = 'fp_chantiers_v2';
+const SETTINGS_STORE = 'fp_settings';
+const LOGO_B64 = 'data:image/png;base64,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mpWvcyzQxVJaSxRwOwtRkD8vbYEp8z1JvpOU1wE3JcFWz0Zn1xKYHm5RRyj6y/K68j6BMiewtVWMAOdFA8KHUcgTyyG11/k+CNX73mqIj0RpaMMTZNgeafUmi+kHPjRLFY/98auHZYKN9MvQT8kwBr0PnYJ07/BepJnomyit6V6ymF6JTkAKtEcgPcTWqnYsFVcA1MVD4dZ5fo6ioH3RgwUXqDbp3I+j3Hkqq98VAg/U6EC9J02fJeOGymhLTgC2+p7eyslzxuZ4nfOyMDZVnQTUaySHPo72Qbuj4SirzcLB3WgS0i8VvRznkHqob20ek+4JfE2NSZP4MGVvTKaxMRkfp+xpMWl6HcavLmr36LWz/5tF+L25/+7Ge/C9KykaffdzBn4fbezlraP4W4N3X0GfQhu8dST4lQLCtejrlKunmtWP4maHj5F2y3ol4OMejo2rd7xz/6H4uKgrDXn0hLSY/wdSO1SPIWgo0lPVryPN6HVhIGk2qosOBe1/4KvQ+3zUr+u7wBpn9XoYUr1kGqTFUVI9FfD12VGd5lG3pWxTG2XroSF93huZfjxEZZdm1Gs8hR2BNAatjUJsC+r5SEjCqDSUqfi3F9of7Y3ehrKa+pMurm5BF1K/XmNVVMCdRMKtUJTdjwMBsbUpATqhnlwfizRYjUbq/GsiDQ4rIQUQfej1gdRAoAs0zZClmWgGmkY/0dW8rUUJ0A80BmyNdAGkgWhEpzRm6PwrYOncz0W6CFGwuovzHnthRbpgox6JA26wcyesHAHOt8aX0UgXTdK6aCTShYmkC0yNUdLh9Ldn2OZilL0+jjTubYY07o1CqyGVq/Jk+mqQJje6kNSYJ+lWhsY91UVjny6WbCZgAibQWgQUcFGcHdJarXJtByoBXU3YTMAETMAETMAECibggFswYLs3ARMwARMwARFwwHU/MAETMAETMIESCDjglgDZRZiACZiACZiAA677gAmYgAmYgAmUQMABtwTILsIETMAETMAEHHDdB0zABEzABEygBAIOuCVAdhEmYAImYAIm4IDrPmACJmACJmACJRBwwC0BsoswARMwARMwga7fhzQJEzABE6gigUuo1JSYij0ac9yHTcAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETMAETKCtCPw/v67rdorrSpgAAAAASUVORK5CYII=';
+
+// Inject logo into header on load
+document.addEventListener('DOMContentLoaded', () => {
+  const img = document.getElementById('header-logo');
+  if (img) img.src = LOGO_B64;
+});
+
+const STATUS_MAP = {
+  'attente-offre': {l:'En attente d\'offre', c:'attente-offre'},
+  'offre-envoyee': {l:'Offre envoyée', c:'offre-envoyee'},
+  'confirme':      {l:'Confirmé', c:'confirme'},
+  'materiel':      {l:'Matériel commandé', c:'materiel'},
+  'attente-pose':  {l:'En attente de pose', c:'attente-pose'},
+  'pose':          {l:'Posé', c:'pose'},
+  'facture':       {l:'Facturé', c:'facture'},
+  'termine':       {l:'Terminé', c:'termine'},
+  'annule':        {l:'Annulé', c:'annule'},
+};
+
+const MONTAGE_STEPS = ['Dépose porte existante','Pose châssis','État panneaux','Pose panneaux','Pose portillon','Pose section vitrée','Pose moteur','Cellule','Digicode','Lame palpeuse','Seuil','Embrasure','Mise en service','Autre'];
+
+// ════════ STATUT AUTO-DÉRIVÉ ════════
+function computeStatut(c) {
+  if (c.statut === 'annule') return 'annule'; // seul statut manuel
+  if (c.facture && parseFloat(c.facture) > 0) return 'facture';
+  if (c.montage?.sigDate) return 'pose';
+  if (c.datePose || c.montage?.dateLivraison) return 'attente-pose';
+  if (c.matieres === 'oui') return 'materiel';
+  if (c.noConfirmation) return 'confirme';
+  if (c.noOffre && c.dateOffre) return 'offre-envoyee';
+  return 'attente-offre';
+}
+function applyComputedStatut(c) {
+  c.statut = computeStatut(c);
+  // Mise à jour UI si le chantier affiché est bien celui-là
+  if (currentId === c.id) {
+    document.getElementById('header-badge').innerHTML = badge(c.statut);
+    const annuleBtn = document.getElementById('btn-annule');
+    const reactiverBtn = document.getElementById('btn-reactiver');
+    if (annuleBtn) annuleBtn.style.display = c.statut === 'annule' ? 'none' : '';
+    if (reactiverBtn) reactiverBtn.style.display = c.statut === 'annule' ? '' : 'none';
+  }
+}
+
+// ════════ DATA ════════
+let chantiers = [];
+let settings = {};
+let currentId = null;
+let lastCalcPvFinal = 0;
+
+function load() {
+  try { chantiers = JSON.parse(localStorage.getItem(STORE)) || []; } catch(e) { chantiers = []; }
+  try { settings = JSON.parse(localStorage.getItem(SETTINGS_STORE)) || {}; } catch(e) { settings = {}; }
+  if (!settings.taux)      settings.taux = 0.965;
+  if (!settings.douane)    settings.douane = 3.0;
+  if (!settings.marge)     settings.marge = 35;
+  if (!settings.transport) settings.transport = 120;
+  if (!settings.bureau)    settings.bureau = 150;
+  if (!settings.monteurs)  settings.monteurs = [];
+}
+function save() { localStorage.setItem(STORE, JSON.stringify(chantiers)); }
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function now() { return new Date().toISOString(); }
+function getCh() { return chantiers.find(c => c.id === currentId); }
+
+// ════════ ROUTING ════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+}
+
+function showDashboard() {
+  showView('dashboard');
+  document.getElementById('breadcrumb').style.display = 'none';
+  document.getElementById('btn-new').style.display = '';
+  document.getElementById('btn-settings').style.display = '';
+  document.getElementById('btn-stats').style.display = '';
+  document.getElementById('btn-planning').style.display = '';
+  document.getElementById('btn-commandes').style.display = '';
+  document.getElementById('header-badge').innerHTML = '';
+  cardFilter = null;
+  renderSummary(); renderTable();
+}
+
+function showSettings() {
+  showView('settings');
+  document.getElementById('breadcrumb').style.display = 'none';
+  document.getElementById('btn-new').style.display = 'none';
+  document.getElementById('s-taux').value      = settings.taux;
+  document.getElementById('s-douane').value    = settings.douane;
+  document.getElementById('s-marge').value     = settings.marge;
+  document.getElementById('s-transport').value = settings.transport;
+  document.getElementById('s-bureau').value    = settings.bureau;
+  renderMonteursList();
+}
+
+function saveSettings() {
+  settings.taux      = parseFloat(document.getElementById('s-taux').value)      || 0.965;
+  settings.douane    = parseFloat(document.getElementById('s-douane').value)    || 3;
+  settings.marge     = parseFloat(document.getElementById('s-marge').value)     || 35;
+  settings.transport = parseFloat(document.getElementById('s-transport').value) || 120;
+  settings.bureau    = parseFloat(document.getElementById('s-bureau').value)    || 150;
+  // monteurs sauvegardés en temps réel via addMonteur/removeMonteur
+  localStorage.setItem(SETTINGS_STORE, JSON.stringify(settings));
+  toast('Paramètres sauvegardés ✓','success');
+  showDashboard();
+}
+
+// ════════ MONTEURS ════════
+function renderMonteursList() {
+  const el = document.getElementById('monteurs-list'); if (!el) return;
+  if (!settings.monteurs.length) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--text-light)">Aucun collaborateur ajouté.</span>';
+    return;
+  }
+  el.innerHTML = settings.monteurs.map((m,i) =>
+    `<span style="display:inline-flex;align-items:center;gap:5px;background:#eef0f3;border-radius:20px;padding:4px 10px 4px 12px;font-size:13px">
+      ${esc(m)}
+      <button onclick="removeMonteur(${i})" style="background:none;border:none;cursor:pointer;color:#999;font-size:14px;line-height:1;padding:0" title="Supprimer">✕</button>
+    </span>`
+  ).join('');
+}
+function addMonteur() {
+  const inp = document.getElementById('s-monteur-input');
+  const val = inp.value.trim(); if (!val) return;
+  if (settings.monteurs.includes(val)) { toast('Ce nom existe déjà','error'); return; }
+  settings.monteurs.push(val);
+  localStorage.setItem(SETTINGS_STORE, JSON.stringify(settings));
+  inp.value = '';
+  renderMonteursList();
+  toast(`${val} ajouté ✓`,'success');
+}
+function removeMonteur(i) {
+  settings.monteurs.splice(i,1);
+  localStorage.setItem(SETTINGS_STORE, JSON.stringify(settings));
+  renderMonteursList();
+}
+function monteursSelect(id, currentVal, placeholder='— Choisir —') {
+  const opts = settings.monteurs.map(m =>
+    `<option value="${esc(m)}" ${currentVal===m?'selected':''}>${esc(m)}</option>`
+  ).join('');
+  return `<select id="${id}" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+    <option value="">${placeholder}</option>
+    ${opts}
+  </select>`;
+}
+
+function openChantier(id) {
+  currentId = id;
+  const c = getCh();
+  if (!c) return;
+  showView('chantier');
+  document.getElementById('breadcrumb').style.display = 'flex';
+  document.getElementById('bc-client').textContent = c.client;
+  document.getElementById('btn-new').style.display = 'none';
+  document.getElementById('ch-title').textContent = c.client;
+  const meta = [c.reference, c.type, c.adresse].filter(Boolean).join(' · ');
+  document.getElementById('ch-meta').textContent = meta;
+  // Recalculer et appliquer le statut à l'ouverture
+  applyComputedStatut(c);
+  if (c.statut !== getCh()?.statut) save(); // sauver si statut a changé
+
+  switchTab('resume', document.querySelector('.tab-btn'));
+  renderResume();
+}
+
+// ════════ TABS ════════
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'resume')   renderResume();
+  if (name === 'mesure')   loadMesure();
+  if (name === 'calc')     loadCalc();
+  if (name === 'commande') loadCommande();
+  if (name === 'montage')  loadMontage();
+}
+
+// ════════ STATUT MANUEL (annulé uniquement) ════════
+function annulerChantier() {
+  const c = getCh(); if (!c) return;
+  if (!confirm(`Annuler le chantier "${c.client}" ?\nLe statut passera à "Annulé" et ne sera plus recalculé automatiquement.`)) return;
+  c.statut = 'annule'; c.updated = now();
+  save(); applyComputedStatut(c); renderResume();
+  toast('Chantier annulé','error');
+}
+function reactiverChantier() {
+  const c = getCh(); if (!c) return;
+  c.statut = ''; // vider pour forcer le recalcul
+  c.updated = now();
+  applyComputedStatut(c); save(); renderResume();
+  toast('Chantier réactivé — statut recalculé ✓','success');
+}
+
+// ════════ HELPERS ════════
+function badge(s) {
+  const st = STATUS_MAP[s] || {l:s,c:'attente-offre'};
+  return `<span class="badge badge-${st.c}">${st.l}</span>`;
+}
+function fmtDate(d) { if (!d) return ''; const [y,m,j]=d.split('-'); return `${j}.${m}.${y}`; }
+function fmtChf(v) { if (!v && v!==0) return '—'; return parseFloat(v).toLocaleString('fr-CH',{minimumFractionDigits:2,maximumFractionDigits:2})+' CHF'; }
+function esc(s) { return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''; }
+function chk(v,yes='✓',no='✗') { if (v==='oui'||v===true) return `<span class="chk-yes">${yes}</span>`; if (v==='non'||v===false) return `<span class="chk-no">${no}</span>`; return '<span class="chk-empty">—</span>'; }
+
+// ════════ CARD FILTER ════════
+let cardFilter = null;
+
+// ════════ SORT ════════
+let sortCol = 'client';
+let sortDir = 1; // 1 = asc, -1 = desc
+
+function sortTable(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  renderTable();
+}
+
+function sortedChantiers(data) {
+  return [...data].sort((a, b) => {
+    let av, bv;
+    switch(sortCol) {
+      case 'statut':    av = a.statut||''; bv = b.statut||''; break;
+      case 'client':    av = (a.client||'').toLowerCase(); bv = (b.client||'').toLowerCase(); break;
+      case 'reference': av = (a.reference||'').toLowerCase(); bv = (b.reference||'').toLowerCase(); break;
+      case 'type':      av = (a.type||'').toLowerCase(); bv = (b.type||'').toLowerCase(); break;
+      case 'noOffre':   av = (a.noOffre||'').toLowerCase(); bv = (b.noOffre||'').toLowerCase(); break;
+      case 'montant':   av = parseFloat(a.montant)||0; bv = parseFloat(b.montant)||0; break;
+      case 'livraison': av = a.montage?.dateLivraison||a.dateLivraison||''; bv = b.montage?.dateLivraison||b.dateLivraison||''; break;
+      case 'pose':      av = a.montage?.sigDate||a.datePose||''; bv = b.montage?.sigDate||b.datePose||''; break;
+      case 'facture':   av = a.dateFacture||(a.facture>0?'1':''); bv = b.dateFacture||(b.facture>0?'1':''); break;
+      default: return 0;
+    }
+    if (av < bv) return -sortDir;
+    if (av > bv) return sortDir;
+    return 0;
+  });
+}
+
+function thSort(col, label) {
+  const active = sortCol === col;
+  const arrow = active ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
+  return `<th onclick="sortTable('${col}')" style="cursor:pointer;user-select:none;${active?'background:var(--primary-dark,#1a252f)':''}" title="Trier par ${label}">${label}<span style="opacity:${active?1:0.3};font-size:10px">${active?arrow:' ↕'}</span></th>`;
+}
+
+function setCardFilter(key) {
+  cardFilter = (cardFilter === key) ? null : key;  // toggle
+  renderSummary();
+  renderTable();
+  if (cardFilter) document.getElementById('tbody').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// ════════ SUMMARY ════════
+function renderSummary() {
+  const total = chantiers.length;
+  const actifs = chantiers.filter(c=>!['termine','annule'].includes(c.statut)).length;
+  const aPoser = chantiers.filter(c=>['confirme','materiel','attente-pose'].includes(c.statut)).length;
+  const nonFact = chantiers.filter(c=>c.statut==='pose').length;
+  const mont = chantiers.filter(c=>c.statut!=='annule'&&c.montant).reduce((s,c)=>s+parseFloat(c.montant||0),0);
+  const offresSansReponse = chantiers.filter(c => {
+    if (!c.dateOffre || c.noConfirmation) return false;
+    const days = Math.floor((Date.now()-new Date(c.dateOffre))/(1000*60*60*24));
+    return days >= 30 && ['offre-envoyee','attente-offre'].includes(c.statut);
+  }).length;
+  const card = (key, label, valHtml, extraStyle='', title='') =>
+    `<div class="stat-card${cardFilter===key?' active':''}" onclick="setCardFilter('${key}')" ${title?`title="${title}"`:''}  style="${extraStyle}">
+      <div class="stat-label">${label}</div>
+      <div>${valHtml}</div>
+      ${cardFilter===key?`<div style="font-size:10px;color:var(--accent);margin-top:4px">▲ Filtre actif — cliquer pour annuler</div>`:''}
+    </div>`;
+  document.getElementById('summary-row').innerHTML =
+    card('all',   'Total chantiers', `<div class="stat-val">${total}</div>`) +
+    card('actifs','En cours',         `<div class="stat-val blue">${actifs}</div>`) +
+    card('aPoser','À poser',          `<div class="stat-val orange">${aPoser}</div>`) +
+    card('nonFact','Posé, non facturé',`<div class="stat-val purple">${nonFact}</div>`) +
+    card('offres', '⚠️ Offres sans réponse (+30j)', `<div class="stat-val" style="color:${offresSansReponse>0?'#e74c3c':'#27ae60'}">${offresSansReponse}</div>`,
+      offresSansReponse>0?'border-left:3px solid #e74c3c':'', 'Offres envoyées il y a plus de 30 jours sans confirmation') +
+    card('montant','Montant (CHF)', `<div class="stat-val green" style="font-size:20px">${mont>0?mont.toLocaleString('fr-CH',{minimumFractionDigits:0,maximumFractionDigits:0})+' CHF':'—'}</div>`);
+}
+
+// ════════ TABLE ════════
+function filteredChantiers() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const fs = document.getElementById('flt-statut').value;
+  const ft = document.getElementById('flt-type').value;
+  return chantiers.filter(c => {
+    // Card filter (prioritaire sur le filtre statut)
+    if (cardFilter && cardFilter !== 'all') {
+      if (cardFilter === 'actifs'  && ['termine','annule'].includes(c.statut)) return false;
+      if (cardFilter === 'aPoser'  && !['confirme','materiel','attente-pose'].includes(c.statut)) return false;
+      if (cardFilter === 'nonFact' && c.statut !== 'pose') return false;
+      if (cardFilter === 'offres') {
+        if (!c.dateOffre || c.noConfirmation) return false;
+        const days = Math.floor((Date.now()-new Date(c.dateOffre))/(1000*60*60*24));
+        if (days < 30 || !['offre-envoyee','attente-offre'].includes(c.statut)) return false;
+      }
+      if (cardFilter === 'montant' && !c.montant) return false;
+    }
+    // Filtres barre d'outils (ignorés si filtre carte actif)
+    if (!cardFilter) {
+      if (fs && c.statut!==fs) return false;
+    }
+    if (ft && c.type!==ft) return false;
+    if (q && !([c.client,c.reference,c.description,c.adresse].join(' ').toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+function renderTable() {
+  const data = sortedChantiers(filteredChantiers());
+  document.getElementById('thead-row').innerHTML =
+    thSort('statut','Statut') + thSort('client','Client') + thSort('reference','Réf.') +
+    thSort('type','Type') + thSort('noOffre','N° Offre') + thSort('montant','Montant TTC') +
+    '<th>Matériel</th>' +
+    thSort('livraison','Livraison') + thSort('pose','Posé') + thSort('facture','Facture');
+  document.getElementById('count-label').textContent = data.length===chantiers.length
+    ? `${chantiers.length} chantier${chantiers.length!==1?'s':''}`
+    : `${data.length} / ${chantiers.length}`;
+  const tb = document.getElementById('tbody');
+  if (!data.length) {
+    tb.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="big">📋</div><p>${!chantiers.length?'Aucun chantier. Commençons !':'Aucun résultat.'}</p>${!chantiers.length?'<button class="btn btn-primary" onclick="openNewModal()">+ Créer le premier chantier</button>':''}</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = data.map(c => `<tr onclick="openChantier('${c.id}')">
+    <td>${badge(c.statut)}</td>
+    <td class="td-client"><strong>${esc(c.client)}</strong>${c.adresse?`<small>${esc(c.adresse)}</small>`:''}</td>
+    <td class="td-mono">${esc(c.reference)||'—'}</td>
+    <td>${esc(c.type)||'—'}</td>
+    <td class="td-mono">${(()=>{
+      let s = esc(c.noOffre)||'—';
+      if (c.dateOffre && !c.noConfirmation && ['offre-envoyee','attente-offre'].includes(c.statut)) {
+        const days = Math.floor((Date.now()-new Date(c.dateOffre))/(1000*60*60*24));
+        if (days >= 15) {
+          const color = days >= 30 ? '#e74c3c' : '#e67e22';
+          s += ` <span style="font-size:10px;padding:1px 5px;border-radius:8px;background:${days>=30?'#fdecea':'#fef3ea'};color:${color};font-weight:700">${days}j</span>`;
+        }
+      }
+      return s;
+    })()}</td>
+    <td class="td-chf">${fmtChf(c.montant)}</td>
+    <td>${chk(c.matieres==='oui'?'oui':c.matieres==='non'?'non':'')}</td>
+    <td>${c.montage?.dateLivraison ? fmtDate(c.montage.dateLivraison) : (c.dateLivraison?`<span style="color:var(--text-light)">${fmtDate(c.dateLivraison)}</span>`:'—')}</td>
+    <td>${c.montage?.sigDate ? '<span class="chk-yes">✓</span>' : (c.datePose ? `<span style="color:var(--text-light);font-size:11px">${fmtDate(c.datePose)}</span>` : '—')}</td>
+    <td>${c.dateFacture?fmtDate(c.dateFacture):(c.facture>0?'<span class="chk-yes">✓</span>':'—')}</td>
+  </tr>`).join('');
+}
+
+// ════════ RESUME TAB ════════
+function renderResume() {
+  const c = getCh(); if (!c) return;
+  const row = (k,v) => v?`<div class="info-line"><span class="info-key">${k}</span><span class="info-val">${v}</span></div>`:'';
+  document.getElementById('resume-content').innerHTML = `
+    <div class="info-block">
+      <div class="info-block-title">Client</div>
+      ${row('Adresse',esc(c.adresse))}
+      ${row('Téléphone',esc(c.telephone))}
+      ${row('Email',esc(c.email))}
+    </div>
+    <div class="info-block">
+      <div class="info-block-title">Chantier</div>
+      ${row('Référence',esc(c.reference))}
+      ${row('Type',esc(c.type))}
+      ${row('Statut',badge(c.statut))}
+      ${row('Validé le',c.dateValidation?fmtDate(c.dateValidation):'')}
+    </div>
+    <div class="info-block">
+      <div class="info-block-title">Offre &amp; Commande</div>
+      ${row('N° Offre', c.noOffre ? (esc(c.noOffre) + (c.dateOffre ? ` <span style="font-size:11px;color:var(--text-light)">envoyée le ${fmtDate(c.dateOffre)}</span>` : '')) : '')}
+      ${(()=>{
+        if (!c.dateOffre || c.noConfirmation || !['offre-envoyee','attente-offre'].includes(c.statut)) return '';
+        const days = Math.floor((Date.now() - new Date(c.dateOffre))/(1000*60*60*24));
+        if (days < 15) return '';
+        const color = days >= 30 ? '#e74c3c' : '#e67e22';
+        return `<div class="info-line"><span class="info-key">⚠️ Sans réponse depuis</span><span class="info-val" style="color:${color};font-weight:700">${days} jour${days>1?'s':''}</span></div>`;
+      })()}
+      ${row('N° Confirmation',esc(c.noConfirmation))}
+      ${(()=>{
+        if (!c.montant) return '';
+        const fromCalc = c.calc && c.calc.pvFinal && Math.round(c.calc.pvFinal) === Math.round(parseFloat(c.montant));
+        const suffix = fromCalc
+          ? ` <span style="font-size:11px;color:#27ae60">= prix calculé</span>`
+          : (c.calc && c.calc.pvFinal ? ` <span style="font-size:11px;color:#e67e22" title="Différent du prix calculé (${fmtChf(c.calc.pvFinal)})">⚠️ ajusté manuellement</span>` : '');
+        return `<div class="info-line"><span class="info-key">Montant TTC</span><span class="info-val"><strong>${fmtChf(c.montant)}</strong>${suffix}</span></div>`;
+      })()}
+      ${row('Matières commandées',c.matieres==='oui'?'✓ Oui':c.matieres==='non'?'✗ Non':'')}
+      ${(()=>{
+        // Livraison : date prévue (modal) + effective (montage) si différentes
+        const prevue = c.dateLivraison;
+        const effective = c.montage?.dateLivraison;
+        if (!prevue && !effective) return '';
+        if (effective && prevue && effective !== prevue) {
+          return row('Livraison matériel', `<span style="color:var(--text-light);text-decoration:line-through">${fmtDate(prevue)}</span> → <strong>${fmtDate(effective)}</strong> <span style="font-size:11px;color:var(--text-light)">(effective)</span>`);
+        }
+        if (effective) return row('Livraison matériel', `${fmtDate(effective)} <span style="font-size:11px;color:#27ae60">✓ livrée</span>`);
+        return row('Livraison matériel (prévue)', fmtDate(prevue));
+      })()}
+    </div>
+    <div class="info-block">
+      <div class="info-block-title">Pose</div>
+      ${(()=>{
+        const prevue = c.datePose;
+        const mo = c.montage;
+        const dateReelle = mo?.date;
+        const signe = mo?.sigDate;
+        const sigNom = mo?.sigNom;
+        let html = '';
+        if (dateReelle) {
+          // Pose effectuée
+          html += row('Posé le', `<strong>${fmtDate(dateReelle)}</strong>${mo.monteurs ? ` <span style="font-size:11px;color:var(--text-light)">par ${esc(mo.monteurs)}</span>` : ''}`);
+          if (prevue && prevue !== dateReelle) {
+            html += row('Prévu le', `<span style="color:var(--text-light);text-decoration:line-through">${fmtDate(prevue)}</span>`);
+          }
+          if (signe) html += row('Réception signée', `${fmtDate(signe)}${sigNom ? ` — ${esc(sigNom)}` : ''}`);
+          if (mo.noPorte) html += row('N° porte (série)', esc(mo.noPorte));
+        } else if (prevue) {
+          html += row('Pose prévue', fmtDate(prevue));
+        }
+        return html || '';
+      })()}
+    </div>
+    <div class="info-block">
+      <div class="info-block-title">Facturation</div>
+      ${row('Acompte',c.acompte?(fmtChf(c.acompte)+(c.dateAcompte?' — '+fmtDate(c.dateAcompte):'')):'') }
+      ${row('2ème acompte',c.acompte2?(fmtChf(c.acompte2)+(c.dateAcompte2?' — '+fmtDate(c.dateAcompte2):'')):'') }
+      ${row('Facture finale',c.facture?(fmtChf(c.facture)+(c.dateFacture?' — '+fmtDate(c.dateFacture):'')):'') }
+    </div>
+    ${(c.mesure&&c.mesure.typePorte)?`<div class="info-block"><div class="info-block-title">Prise de mesure</div>${row('Type de porte',esc(c.mesure.typePorte))}${row('Dimensions',c.mesure.larg&&c.mesure.haut?c.mesure.larg+' × '+c.mesure.haut+' mm':'')}${row('Couleur',esc(c.mesure.couleur))}</div>`:''}
+    ${(c.calc&&c.calc.pvFinal)?`<div class="info-block"><div class="info-block-title">Calculation</div>${row('Prix Condor (EUR)',c.calc.prixEur?c.calc.prixEur+' EUR':'')}${row('Prix de vente calculé',fmtChf(c.calc.pvFinal))}</div>`:''}
+    ${c.remarques?`<div class="info-block full"><div class="info-block-title">Remarques</div><p style="font-size:13px;line-height:1.5">${esc(c.remarques).replace(/\n/g,'<br>')}</p></div>`:''}`;
+}
+
+// ════════ MESURE TAB ════════
+function loadMesure() {
+  const c = getCh(); if (!c) return;
+  const m = c.mesure || {};
+  const fields = {
+    'm-type-porte':m.typePorte,'m-larg':m.larg,'m-haut':m.haut,
+    'm-ecoincon-g':m.ecoinconG,'m-ecoincon-d':m.ecoinconD,
+    'm-imposte':m.imposte,'m-type-panneau':m.typePanneau,'m-couleur':m.couleur,
+    'm-autre':m.autre,'m-notes':m.notes
+  };
+  for (const [id,val] of Object.entries(fields)) {
+    const el = document.getElementById(id); if (el) el.value = val||'';
+  }
+  const checkboxes = {
+    'm-imposte-pan':m.impostePan,'m-moteur':m.moteur,'m-portillon':m.portillon,
+    'm-section-vitree':m.sectionVitree,'m-seuil-inox':m.seuilInox,'m-hublots':m.hublots,
+    'm-digicode':m.digicode,'m-deverouillage':m.deverouillage,'m-depose':m.depose
+  };
+  for (const [id,val] of Object.entries(checkboxes)) {
+    const el = document.getElementById(id); if (el) el.checked = !!val;
+  }
+  // Check radios
+  const checks = {embrasure:m.chkEmbrasure,sol:m.chkSol,plafond:m.chkPlafond,elec:m.chkElec,autre:m.chkAutre};
+  for (const [name,val] of Object.entries(checks)) {
+    if (val) { const r = document.querySelector(`input[name="chk-${name}"][value="${val}"]`); if (r) r.checked=true; }
+  }
+  const remarks = {embrasure:m.remEmbrasure,sol:m.remSol,plafond:m.remPlafond,elec:m.remElec,'autre-chk':m.remAutre};
+  for (const [id,val] of Object.entries(remarks)) {
+    const el = document.getElementById('rem-'+id); if (el) el.value = val||'';
+  }
+}
+
+function saveMesure(e) {
+  e.preventDefault();
+  const c = getCh(); if (!c) return;
+  const getR = name => { const r=document.querySelector(`input[name="${name}"]:checked`); return r?r.value:''; };
+  c.mesure = {
+    typePorte: document.getElementById('m-type-porte').value,
+    larg: document.getElementById('m-larg').value,
+    haut: document.getElementById('m-haut').value,
+    ecoinconG: document.getElementById('m-ecoincon-g').value,
+    ecoinconD: document.getElementById('m-ecoincon-d').value,
+    imposte: document.getElementById('m-imposte').value,
+    typePanneau: document.getElementById('m-type-panneau').value,
+    couleur: document.getElementById('m-couleur').value,
+    impostePan: document.getElementById('m-imposte-pan').checked,
+    moteur: document.getElementById('m-moteur').checked,
+    portillon: document.getElementById('m-portillon').checked,
+    sectionVitree: document.getElementById('m-section-vitree').checked,
+    seuilInox: document.getElementById('m-seuil-inox').checked,
+    hublots: document.getElementById('m-hublots').checked,
+    digicode: document.getElementById('m-digicode').checked,
+    deverouillage: document.getElementById('m-deverouillage').checked,
+    depose: document.getElementById('m-depose').checked,
+    autre: document.getElementById('m-autre').value,
+    chkEmbrasure: getR('chk-embrasure'), remEmbrasure: document.getElementById('rem-embrasure').value,
+    chkSol: getR('chk-sol'),             remSol: document.getElementById('rem-sol').value,
+    chkPlafond: getR('chk-plafond'),     remPlafond: document.getElementById('rem-plafond').value,
+    chkElec: getR('chk-elec'),           remElec: document.getElementById('rem-elec').value,
+    chkAutre: getR('chk-autre'),         remAutre: document.getElementById('rem-autre-chk').value,
+    notes: document.getElementById('m-notes').value,
+  };
+  c.updated = now();
+  applyComputedStatut(c); save(); renderResume(); toast('Prise de mesure enregistrée ✓','success');
+}
+
+// ════════ CALC TAB ════════
+function loadCalc() {
+  const c = getCh(); if (!c) return;
+  const calc = c.calc || {};
+  document.getElementById('c-prix-eur').value = calc.prixEur || '';
+  document.getElementById('c-taux').value = settings.taux;
+  document.getElementById('c-pose').value = calc.pose !== undefined ? calc.pose : settings.transport||'';
+  document.getElementById('c-bureau').value = calc.bureau !== undefined ? calc.bureau : settings.bureau||'';
+  document.getElementById('c-annexes').value = calc.annexes || '';
+  document.getElementById('c-transport').value = calc.transport !== undefined ? calc.transport : settings.transport||'';
+  if (calc.arrondi) document.getElementById('c-arrondi').value = calc.arrondi;
+  calcUpdate();
+}
+
+function calcUpdate() {
+  const taux    = parseFloat(settings.taux)  || 0.965;
+  const tDouane = parseFloat(settings.douane) || 3;
+  const tMarge  = parseFloat(settings.marge)  || 35;
+
+  const eur      = parseFloat(document.getElementById('c-prix-eur').value) || 0;
+  const pose     = parseFloat(document.getElementById('c-pose').value)     || 0;
+  const bureau   = parseFloat(document.getElementById('c-bureau').value)   || 0;
+  const annexes  = parseFloat(document.getElementById('c-annexes').value)  || 0;
+  const transport= parseFloat(document.getElementById('c-transport').value)|| 0;
+  const arrondi  = parseInt(document.getElementById('c-arrondi').value)    || 50;
+
+  document.getElementById('cv-taux-douane-pct').textContent = tDouane.toFixed(1);
+  document.getElementById('cv-marge-pct').textContent = tMarge.toFixed(1);
+  document.getElementById('c-taux').value = taux;
+
+  if (!eur) {
+    ['cv-chf','cv-douane','cv-achat-total','cv-sous-total','cv-marge','cv-pv-final'].forEach(id=>document.getElementById(id).textContent='—');
+    return;
+  }
+
+  const chf      = eur * taux;
+  const douane   = chf * tDouane / 100;
+  const achatTotal = chf + douane;
+  const sousTotal  = achatTotal + pose + bureau + annexes;
+  const marge      = sousTotal * tMarge / 100;
+  const avantArrnd = sousTotal + marge + transport;
+  const final      = Math.round(avantArrnd / arrondi) * arrondi;
+  lastCalcPvFinal  = final;
+
+  const fmt = v => v.toLocaleString('fr-CH',{minimumFractionDigits:2,maximumFractionDigits:2})+' CHF';
+  document.getElementById('cv-chf').textContent         = fmt(chf);
+  document.getElementById('cv-douane').textContent      = fmt(douane);
+  document.getElementById('cv-achat-total').textContent = fmt(achatTotal);
+  document.getElementById('cv-sous-total').textContent  = fmt(sousTotal);
+  document.getElementById('cv-marge').textContent       = fmt(marge);
+  document.getElementById('cv-pv-final').textContent    = final.toLocaleString('fr-CH',{minimumFractionDigits:2,maximumFractionDigits:2})+' CHF';
+}
+
+function saveCalc(e) {
+  e.preventDefault();
+  const c = getCh(); if (!c) return;
+  const eur = parseFloat(document.getElementById('c-prix-eur').value)||0;
+  const pvFinal = lastCalcPvFinal || 0;
+  c.calc = {
+    prixEur: eur,
+    pose: parseFloat(document.getElementById('c-pose').value)||0,
+    bureau: parseFloat(document.getElementById('c-bureau').value)||0,
+    annexes: parseFloat(document.getElementById('c-annexes').value)||0,
+    transport: parseFloat(document.getElementById('c-transport').value)||0,
+    arrondi: document.getElementById('c-arrondi').value,
+    pvFinal: pvFinal,
+  };
+  if (pvFinal) c.montant = pvFinal;
+  c.updated = now();
+  applyComputedStatut(c); save(); renderResume(); toast('Calculation enregistrée ✓','success');
+}
+
+// ════════ COMMANDE TAB ════════
+function loadCommande() {
+  const c = getCh(); if (!c) return;
+  renderCommandeRows(c.commandes||[]);
+  renderFaireRows(c.faire||[]);
+}
+
+function commandeStatusBadge(r) {
+  if (r.recuLe)       return `<span class="badge" style="background:#27ae60">✓ Reçu</span>`;
+  if (r.commandeDate) return `<span class="badge badge-materiel">Commandé</span>`;
+  return `<span class="badge badge-attente-offre">À commander</span>`;
+}
+
+function renderCommandeRows(rows) {
+  document.getElementById('commande-tbody').innerHTML = rows.map((r,i)=>`
+    <tr class="${r.recuLe?'done':''}">
+      <td>${commandeStatusBadge(r)}</td>
+      <td><input type="text" value="${esc(r.produit)}" oninput="updateCommande(${i},'produit',this.value)" placeholder="Produit..."></td>
+      <td><input type="text" value="${esc(r.fournisseur)}" oninput="updateCommande(${i},'fournisseur',this.value)" placeholder="Fournisseur..."></td>
+      <td><input type="text" value="${esc(r.qte)}" oninput="updateCommande(${i},'qte',this.value)" placeholder="1" style="width:60px"></td>
+      <td><input type="date" value="${r.delai||''}" onchange="updateCommande(${i},'delai',this.value)"></td>
+      <td><input type="date" value="${r.commandeDate||''}" onchange="updateCommande(${i},'commandeDate',this.value)"></td>
+      <td><input type="date" value="${r.recuLe||''}" onchange="updateCommande(${i},'recuLe',this.value)"></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="removeCommandeRow(${i})">✕</button></td>
+    </tr>`).join('');
+}
+
+function renderFaireRows(rows) {
+  document.getElementById('faire-tbody').innerHTML = rows.map((r,i)=>`
+    <tr class="${r.faitLe?'done':''}">
+      <td><input type="checkbox" ${r.faitLe?'checked':''} onchange="toggleFaire(${i},this.checked)"></td>
+      <td><input type="text" value="${esc(r.chose)}" oninput="updateFaire(${i},'chose',this.value)" placeholder="À faire..."></td>
+      <td><input type="text" value="${esc(r.endroit)}" oninput="updateFaire(${i},'endroit',this.value)" placeholder="Endroit..."></td>
+      <td><input type="date" value="${r.delai||''}" onchange="updateFaire(${i},'delai',this.value)"></td>
+      <td>${settings.monteurs&&settings.monteurs.length
+        ? `<select onchange="updateFaire(${i},'fairePar',this.value)" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:6px;font-size:12px"><option value="">—</option>${settings.monteurs.map(m=>`<option value="${esc(m)}" ${r.fairePar===m?'selected':''}>${esc(m)}</option>`).join('')}<option value="__autre__" ${!settings.monteurs.includes(r.fairePar)&&r.fairePar?'selected':''}>Autre…</option></select>`
+        : `<input type="text" value="${esc(r.fairePar)}" oninput="updateFaire(${i},'fairePar',this.value)" placeholder="Qui...">`
+      }</td>
+      <td><input type="date" value="${r.faitLe||''}" onchange="updateFaire(${i},'faitLe',this.value)"></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="removeFaireRow(${i})">✕</button></td>
+    </tr>`).join('');
+}
+
+function addCommandeRow() {
+  const c = getCh(); if (!c) return;
+  if (!c.commandes) c.commandes=[];
+  c.commandes.push({produit:'',fournisseur:'',qte:'',delai:'',commandeDate:''});
+  save(); renderCommandeRows(c.commandes);
+}
+function removeCommandeRow(i) {
+  const c = getCh(); if (!c||!c.commandes) return;
+  c.commandes.splice(i,1); save(); renderCommandeRows(c.commandes);
+}
+function updateCommande(i,key,val) {
+  const c = getCh(); if (!c||!c.commandes) return;
+  c.commandes[i][key]=val; save();
+}
+function toggleCommande(i,checked) {
+  const c = getCh(); if (!c||!c.commandes) return;
+  c.commandes[i].commandeDate = checked ? new Date().toISOString().slice(0,10) : '';
+  save(); renderCommandeRows(c.commandes);
+}
+function addFaireRow() {
+  const c = getCh(); if (!c) return;
+  if (!c.faire) c.faire=[];
+  c.faire.push({chose:'',endroit:'',delai:'',fairePar:'',faitLe:''});
+  save(); renderFaireRows(c.faire);
+}
+function removeFaireRow(i) {
+  const c = getCh(); if (!c||!c.faire) return;
+  c.faire.splice(i,1); save(); renderFaireRows(c.faire);
+}
+function updateFaire(i,key,val) {
+  const c = getCh(); if (!c||!c.faire) return;
+  c.faire[i][key]=val; save();
+}
+function toggleFaire(i,checked) {
+  const c = getCh(); if (!c||!c.faire) return;
+  c.faire[i].faitLe = checked ? new Date().toISOString().slice(0,10) : '';
+  save(); renderFaireRows(c.faire);
+}
+function saveCommande() {
+  const c = getCh(); if (!c) return;
+  c.updated = now();
+  const pending = (c.commandes||[]).filter(r=>!r.commandeDate).length;
+  if (!pending && (c.commandes||[]).length > 0) c.matieres = 'oui';
+  applyComputedStatut(c); save();
+  toast('Commandes enregistrées ✓','success');
+}
+function saveFaire() {
+  const c = getCh(); if (!c) return;
+  c.updated = now(); save();
+  toast('Tâches enregistrées ✓','success');
+}
+
+// ════════ MONTAGE TAB ════════
+function loadMontage() {
+  const c = getCh(); if (!c) return;
+  const m = c.montage || {};
+  document.getElementById('mo-date').value = m.date || '';
+  document.getElementById('mo-no-porte').value = m.noPorte || '';
+  // Monteurs : checkboxes si liste définie, sinon champ texte
+  const monteursWrap = document.getElementById('mo-monteurs-wrap');
+  const selected = (m.monteurs||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if (settings.monteurs && settings.monteurs.length) {
+    monteursWrap.innerHTML = settings.monteurs.map(nom =>
+      `<label style="display:inline-flex;align-items:center;gap:5px;margin-right:12px;margin-bottom:4px;font-size:13px;cursor:pointer">
+        <input type="checkbox" name="mo-monteur" value="${esc(nom)}" ${selected.includes(nom)?'checked':''}>
+        ${esc(nom)}
+      </label>`
+    ).join('') + `<div style="margin-top:4px"><input type="text" id="mo-monteurs-autre" placeholder="Autre..." value="${esc(selected.filter(s=>!settings.monteurs.includes(s)).join(', '))}" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:140px"></div>`;
+  } else {
+    monteursWrap.innerHTML = `<input type="text" id="mo-monteurs" placeholder="Ex: Jean, Marc" value="${esc(m.monteurs||'')}" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%">`;
+  }
+  document.getElementById('mo-date-livraison').value = m.dateLivraison || '';
+  // Afficher les dates prévues (source : modal principal) en référence
+  const prevBanner = document.getElementById('montage-previsions');
+  const infoPose = document.getElementById('mo-info-pose');
+  const infoLiv = document.getElementById('mo-info-livraison');
+  const hasPrev = c.datePose || c.dateLivraison;
+  if (hasPrev) {
+    prevBanner.style.display = '';
+    infoPose.textContent = c.datePose ? `Pose prévue le ${fmtDate(c.datePose)}` : '';
+    infoLiv.textContent = c.dateLivraison ? `${c.datePose?'  •  ':''}Livraison prévue le ${fmtDate(c.dateLivraison)}` : '';
+  } else {
+    prevBanner.style.display = 'none';
+  }
+  document.getElementById('mo-sig-nom').value = m.sigNom || '';
+  document.getElementById('mo-sig-date').value = m.sigDate || '';
+  document.getElementById('mo-remarques').value = m.remarques || '';
+
+  // Checklist
+  const checks = m.checks || {};
+  document.getElementById('montage-checklist').innerHTML = MONTAGE_STEPS.map(step => {
+    const key = step.replace(/\s+/g,'_').toLowerCase();
+    const val = checks[key] || '';
+    return `<tr>
+      <td>${esc(step)}</td>
+      <td><input type="radio" name="mchk-${key}" value="ok" ${val==='ok'?'checked':''}></td>
+      <td><input type="radio" name="mchk-${key}" value="pasok" ${val==='pasok'?'checked':''}></td>
+      <td><input type="text" id="mrem-${key}" value="${esc(m['rem_'+key]||'')}" placeholder="Remarque..."></td>
+    </tr>`;
+  }).join('');
+
+  renderFinitionRows(c.finitions||[]);
+}
+
+function saveMontage(e) {
+  e.preventDefault();
+  const c = getCh(); if (!c) return;
+  const checks = {};
+  MONTAGE_STEPS.forEach(step => {
+    const key = step.replace(/\s+/g,'_').toLowerCase();
+    const r = document.querySelector(`input[name="mchk-${key}"]:checked`);
+    if (r) checks[key] = r.value;
+    const remEl = document.getElementById('mrem-'+key);
+    if (remEl && remEl.value) checks['rem_'+key] = remEl.value;
+  });
+  c.montage = {
+    date: document.getElementById('mo-date').value,
+    monteurs: (()=>{
+      const cbs = [...document.querySelectorAll('input[name="mo-monteur"]:checked')].map(el=>el.value);
+      const autre = (document.getElementById('mo-monteurs-autre')?.value||'').trim();
+      const fallback = document.getElementById('mo-monteurs')?.value||'';
+      if (cbs.length || autre) return [...cbs, ...(autre?autre.split(',').map(s=>s.trim()).filter(Boolean):[])].join(', ');
+      return fallback;
+    })(),
+    noPorte: document.getElementById('mo-no-porte').value,
+    dateLivraison: document.getElementById('mo-date-livraison').value,
+    sigNom: document.getElementById('mo-sig-nom').value,
+    sigDate: document.getElementById('mo-sig-date').value,
+    remarques: document.getElementById('mo-remarques').value,
+    checks,
+  };
+  if (document.getElementById('mo-sig-date').value) {
+    c.pose = 'oui';
+  }
+  c.updated = now();
+  applyComputedStatut(c); save(); renderResume();
+  toast('Rapport de montage enregistré ✓','success');
+}
+
+function renderFinitionRows(rows) {
+  document.getElementById('finitions-tbody').innerHTML = rows.map((r,i)=>`
+    <tr class="${r.faitLe?'done':''}">
+      <td><input type="checkbox" ${r.faitLe?'checked':''} onchange="toggleFinition(${i},this.checked)"></td>
+      <td><input type="text" value="${esc(r.finition)}" oninput="updateFinition(${i},'finition',this.value)" placeholder="Finition..."></td>
+      <td><input type="text" value="${esc(r.commande)}" oninput="updateFinition(${i},'commande',this.value)" placeholder="Réf. à commander..."></td>
+      <td><input type="date" value="${r.faitLe||''}" onchange="updateFinition(${i},'faitLe',this.value)"></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="removeFinition(${i})">✕</button></td>
+    </tr>`).join('');
+}
+function addFinitionRow() {
+  const c = getCh(); if (!c) return;
+  if (!c.finitions) c.finitions=[];
+  c.finitions.push({finition:'',commande:'',faitLe:''});
+  save(); renderFinitionRows(c.finitions);
+}
+function removeFinition(i) {
+  const c = getCh(); if (!c||!c.finitions) return;
+  c.finitions.splice(i,1); save(); renderFinitionRows(c.finitions);
+}
+function updateFinition(i,key,val) {
+  const c = getCh(); if (!c||!c.finitions) return;
+  c.finitions[i][key]=val; save();
+}
+function toggleFinition(i,checked) {
+  const c = getCh(); if (!c||!c.finitions) return;
+  c.finitions[i].faitLe = checked ? new Date().toISOString().slice(0,10) : '';
+  save(); renderFinitionRows(c.finitions);
+}
+
+// ════════ MODAL CHANTIER ════════
+function openNewModal() {
+  document.getElementById('modal-title').textContent = 'Nouveau chantier';
+  document.getElementById('btn-del').style.display = 'none';
+  document.getElementById('chantier-form').reset();
+  document.getElementById('f-id').value = '';
+  document.getElementById('modal-overlay').classList.add('active');
+}
+function openEditModal() {
+  const c = getCh(); if (!c) return;
+  document.getElementById('modal-title').textContent = 'Modifier le chantier';
+  document.getElementById('btn-del').style.display = 'inline-flex';
+  const fill = (id,val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
+  fill('f-id',c.id); fill('f-client',c.client); fill('f-adresse',c.adresse);
+  fill('f-tel',c.telephone); fill('f-email',c.email); fill('f-ref',c.reference);
+  fill('f-type',c.type); fill('f-date-val',c.dateValidation);
+  fill('f-no-offre',c.noOffre); fill('f-d-offre',c.dateOffre); fill('f-no-conf',c.noConfirmation);
+  fill('f-montant',c.montant); fill('f-livraison',c.dateLivraison); fill('f-d-pose',c.datePose);
+  fill('f-acompte',c.acompte); fill('f-d-acompte',c.dateAcompte);
+  fill('f-acompte2',c.acompte2); fill('f-d-acompte2',c.dateAcompte2);
+  fill('f-facture',c.facture); fill('f-d-facture',c.dateFacture);
+  fill('f-remarques',c.remarques);
+  document.getElementById('modal-overlay').classList.add('active');
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('active');
+}
+function saveChantierMeta(e) {
+  e.preventDefault();
+  const id = document.getElementById('f-id').value || genId();
+  const isNew = !document.getElementById('f-id').value;
+  const g = id => document.getElementById(id)?.value || '';
+  const obj = {
+    id, created: isNew ? now() : (getCh()?.created||now()), updated: now(),
+    client: g('f-client'), adresse: g('f-adresse'), telephone: g('f-tel'), email: g('f-email'),
+    reference: g('f-ref'), type: g('f-type'), dateValidation: g('f-date-val'),
+    noOffre: g('f-no-offre'), dateOffre: g('f-d-offre'), noConfirmation: g('f-no-conf'),
+    montant: g('f-montant'), matieres: isNew?'':getCh()?.matieres||'',
+    dateLivraison: g('f-livraison'), datePose: g('f-d-pose'), pose: isNew?'':getCh()?.pose||'',
+    acompte: g('f-acompte'), dateAcompte: g('f-d-acompte'),
+    acompte2: g('f-acompte2'), dateAcompte2: g('f-d-acompte2'),
+    facture: g('f-facture'), dateFacture: g('f-d-facture'),
+    remarques: g('f-remarques'),
+    // Préserver statut 'annule' si existant, sinon sera recalculé
+    statut: !isNew && getCh()?.statut === 'annule' ? 'annule' : '',
+  };
+  if (!isNew) {
+    const old = getCh();
+    obj.mesure = old?.mesure; obj.calc = old?.calc;
+    obj.commandes = old?.commandes; obj.faire = old?.faire;
+    obj.montage = old?.montage; obj.finitions = old?.finitions;
+  }
+  applyComputedStatut(obj); // calcule le statut avant insertion
+  const idx = chantiers.findIndex(c => c.id === id);
+  if (idx>=0) chantiers[idx]=obj; else chantiers.unshift(obj);
+  save(); closeModal();
+  if (!isNew) { renderResume(); openChantier(id); }
+  else openChantier(id);
+  toast(isNew?'Chantier créé ✓':'Chantier mis à jour ✓','success');
+}
+function deleteChantier() {
+  const id = document.getElementById('f-id').value; if (!id) return;
+  const c = chantiers.find(x=>x.id===id);
+  if (!confirm(`Supprimer le chantier "${c?.client}" ? Action irréversible.`)) return;
+  chantiers = chantiers.filter(x=>x.id!==id);
+  save(); closeModal(); showDashboard();
+  toast('Chantier supprimé','error');
+}
+
+function duplicateChantier() {
+  const src = getCh(); if (!src) return;
+  if (!confirm(`Dupliquer le chantier "${src.client}" ?\nLes infos client, la prise de mesure et la calculation seront copiées.\nLes commandes, dates et documents seront réinitialisés.`)) return;
+  const newId = 'ch_' + Date.now();
+  const copy = {
+    // Identité
+    id: newId, created: now(), updated: now(),
+    // Infos client — copiées
+    client: src.client + ' (copie)',
+    adresse: src.adresse, telephone: src.telephone, email: src.email,
+    // Chantier — copié sauf reference
+    reference: '', type: src.type, remarques: src.remarques,
+    // Statut réinitialisé
+    statut: 'attente-offre',
+    // Dates commerciales — réinitialisées
+    dateValidation: '', noOffre: '', dateOffre: '', noConfirmation: '',
+    dateLivraison: '', datePose: '',
+    // Facturation — réinitialisée
+    montant: src.calc?.pvFinal || '',
+    matieres: '', pose: '',
+    acompte: '', dateAcompte: '', acompte2: '', dateAcompte2: '',
+    facture: '', dateFacture: '',
+    // Prise de mesure — copiée (même porte, même client)
+    mesure: src.mesure ? JSON.parse(JSON.stringify(src.mesure)) : {},
+    // Calculation — copiée (même fournisseur, même modèle)
+    calc: src.calc ? JSON.parse(JSON.stringify(src.calc)) : null,
+    // Commandes / montage — réinitialisés
+    commandes: [], faire: [], montage: {},
+  };
+  chantiers.unshift(copy);
+  save();
+  currentId = newId;
+  openChantier(newId);
+  toast('Chantier dupliqué ✓ — vérifiez et complétez les informations', 'success');
+}
+
+// ════════ UPLOAD ════════
+function handleFileSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  handleFile(file);
+}
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('upload-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0]; if (file) handleFile(file);
+}
+function handleFile(file) {
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = document.getElementById('upload-preview');
+      img.src = ev.target.result; img.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+  toast('📎 Fichier chargé — extraction IA bientôt disponible','');
+}
+
+// ════════ EXPORT ════════
+function exportCSV() {
+  const headers = ['Client','Référence','Type','Statut','N°Offre','Montant TTC','Matériel','Livraison','Posé','Facture','Remarques'];
+  const rows = chantiers.map(c => [
+    c.client, c.reference, c.type, STATUS_MAP[c.statut]?.l||c.statut,
+    c.noOffre, c.montant, c.matieres, c.dateLivraison, c.pose, c.facture, c.remarques
+  ].map(v => `"${String(v||'').replace(/"/g,'""')}"`));
+  const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+  a.download = 'fermaporte-chantiers.csv';
+  a.click();
+}
+
+// ════════ PLANNING ════════
+let planningYear  = new Date().getFullYear();
+let planningMonth = new Date().getMonth(); // 0-indexed
+
+function showPlanning() {
+  showView('planning');
+  document.getElementById('breadcrumb').style.display = 'none';
+  document.getElementById('btn-new').style.display = 'none';
+  renderPlanning();
+}
+
+function planningNav(dir) {
+  planningMonth += dir;
+  if (planningMonth > 11) { planningMonth = 0; planningYear++; }
+  if (planningMonth < 0)  { planningMonth = 11; planningYear--; }
+  renderPlanning();
+}
+
+function planningGoToday() {
+  const n = new Date();
+  planningYear = n.getFullYear();
+  planningMonth = n.getMonth();
+  renderPlanning();
+}
+
+function renderPlanning() {
+  const y = planningYear, m = planningMonth;
+  const label = new Date(y, m, 1).toLocaleDateString('fr-CH', {month:'long', year:'numeric'});
+  document.getElementById('planning-month-label').textContent =
+    label.charAt(0).toUpperCase() + label.slice(1);
+
+  // Build events map: 'YYYY-MM-DD' → [{type, chantier}]
+  const events = {};
+  const add = (dateStr, type, c, label='') => {
+    if (!dateStr) return;
+    const k = dateStr.slice(0,10);
+    if (!events[k]) events[k] = [];
+    events[k].push({ type, c, label });
+  };
+  chantiers.forEach(c => {
+    if (c.statut === 'annule') return;
+    // Pose & livraison matériel (prévues ou effectives)
+    const datePose = c.montage?.date || c.datePose;
+    const dateLiv  = c.montage?.dateLivraison || c.dateLivraison;
+    if (datePose && dateLiv && datePose.slice(0,10) === dateLiv.slice(0,10)) {
+      add(datePose, 'both', c);
+    } else {
+      if (datePose) add(datePose, 'pose', c);
+      if (dateLiv)  add(dateLiv, 'livraison', c);
+    }
+    // Commandes attendues (commandées mais pas encore reçues)
+    (c.commandes||[]).forEach(r => {
+      if (r.delai && r.commandeDate && !r.recuLe)
+        add(r.delai, 'commande', c, r.produit||'Commande');
+    });
+    // Tâches à faire (avec date, pas encore faites)
+    (c.faire||[]).forEach(r => {
+      if (r.delai && !r.faitLe)
+        add(r.delai, 'faire', c, r.chose||'Tâche');
+    });
+  });
+
+  // Calendar grid
+  const firstDay = new Date(y, m, 1);
+  const lastDay  = new Date(y, m+1, 0);
+  // Monday = 0 in our grid
+  let startDow = (firstDay.getDay() + 6) % 7; // Mon-based
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const days = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  let html = `<div class="cal-grid">`;
+  html += days.map(d => `<div class="cal-head">${d}</div>`).join('');
+
+  // Prev month padding
+  for (let i = 0; i < startDow; i++) {
+    const d = new Date(y, m, 1 - (startDow - i));
+    html += `<div class="cal-cell other-month"><div class="cal-day-num">${d.getDate()}</div></div>`;
+  }
+
+  // Current month days
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dt = new Date(y, m, d);
+    const isToday = dt.getTime() === today.getTime();
+    const key = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayEvents = events[key] || [];
+    const evHtml = dayEvents.map(ev => {
+      const icon = ev.type==='pose'?'🔧':ev.type==='livraison'?'📦':ev.type==='both'?'🔧📦':ev.type==='commande'?'📬':'✅';
+      const label = ev.type==='commande'||ev.type==='faire' ? esc(ev.label||ev.c.client) : esc(ev.c.client);
+      return `<div class="cal-event ${ev.type}" onclick="event.stopPropagation();openChantier('${ev.c.id}')" title="${esc(ev.c.client)}${ev.c.reference?' · '+esc(ev.c.reference):''}">
+        ${icon} ${label}
+      </div>`;
+    }).join('');
+    html += `<div class="cal-cell${isToday?' today':''}">
+      <div class="cal-day-num">${d}</div>
+      ${evHtml}
+    </div>`;
+  }
+
+  // Next month padding
+  const totalCells = startDow + lastDay.getDate();
+  const remaining  = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 1; i <= remaining; i++) {
+    html += `<div class="cal-cell other-month"><div class="cal-day-num">${i}</div></div>`;
+  }
+  html += '</div>';
+  document.getElementById('planning-calendar').innerHTML = html;
+
+  // Agenda list
+  const monthEvents = [];
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const key = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (events[key]) monthEvents.push({ date: key, d, evs: events[key] });
+  }
+
+  if (!monthEvents.length) {
+    document.getElementById('planning-list').innerHTML =
+      '<p style="color:var(--text-light);font-size:13px">Aucun événement ce mois — ajoutez des dates de pose ou de livraison dans les chantiers.</p>';
+    return;
+  }
+
+  const listHtml = monthEvents.map(({ date, d, evs }) => {
+    const dateLabel = new Date(y, m, d).toLocaleDateString('fr-CH',{weekday:'long',day:'numeric',month:'long'});
+    const items = evs.map(ev => {
+      const typeLabel = ev.type==='pose'?'🔧 Pose':ev.type==='livraison'?'📦 Livraison mat.':ev.type==='both'?'🔧📦 Pose + Livraison':ev.type==='commande'?'📬 Commande attendue':'✅ Tâche à faire';
+      const color = ev.type==='pose'?'#27ae60':ev.type==='livraison'?'#3498db':ev.type==='both'?'#9b59b6':ev.type==='commande'?'#e67e22':'#16a085';
+      const detail = (ev.type==='commande'||ev.type==='faire') ? (ev.label?` — ${esc(ev.label)}`:'') : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f2f5;cursor:pointer" onclick="openChantier('${ev.c.id}')">
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${color}22;color:${color};font-weight:600;white-space:nowrap">${typeLabel}</span>
+        <strong style="font-size:13px">${esc(ev.c.client)}</strong>
+        ${ev.c.reference?`<span style="font-size:11px;color:var(--text-light)">${esc(ev.c.reference)}</span>`:''}
+        <span style="font-size:11px;color:var(--text-light)">${detail}</span>
+        ${ev.c.montant&&ev.type!=='commande'&&ev.type!=='faire'?`<span style="font-size:11px;color:var(--text-light);margin-left:auto">${fmtChf(ev.c.montant)}</span>`:''}
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--primary);text-transform:capitalize;margin-bottom:4px">${dateLabel}</div>
+      ${items}
+    </div>`;
+  }).join('');
+
+  document.getElementById('planning-list').innerHTML = listHtml;
+}
+
+// ════════ STATS ════════
+function showStats() {
+  showView('stats');
+  document.getElementById('breadcrumb').style.display = 'none';
+  document.getElementById('btn-new').style.display = 'none';
+  renderStats();
+}
+
+function renderStats() {
+  renderStatsKPI();
+  renderChartCA();
+  renderChartDonut();
+  renderChartFunnel();
+  renderStatsOffres();
+}
+
+function renderStatsKPI() {
+  const confirmed = ['confirme','materiel','attente-pose','pose','termine'];
+  const revenue = chantiers.filter(c => confirmed.includes(c.statut) && c.montant)
+    .reduce((s,c) => s + parseFloat(c.montant||0), 0);
+  const ticketMoyen = chantiers.filter(c => confirmed.includes(c.statut) && c.montant).length;
+  const avg = ticketMoyen ? revenue / ticketMoyen : 0;
+  const offresEnvoyees = chantiers.filter(c => ['offre-envoyee'].includes(c.statut)).length;
+  const confirmes = chantiers.filter(c => confirmed.includes(c.statut)).length;
+  const txConv = offresEnvoyees + confirmes > 0
+    ? Math.round(confirmes / (offresEnvoyees + confirmes) * 100) : 0;
+  const enCours = chantiers.filter(c => !['termine','annule'].includes(c.statut)).length;
+
+  document.getElementById('stats-kpi-row').innerHTML = `
+    <div class="stat-card" style="cursor:default">
+      <div class="stat-label">CA confirmé</div>
+      <div class="stat-val green" style="font-size:18px">${revenue>0?revenue.toLocaleString('fr-CH',{minimumFractionDigits:0,maximumFractionDigits:0})+' CHF':'—'}</div>
+    </div>
+    <div class="stat-card" style="cursor:default">
+      <div class="stat-label">Ticket moyen</div>
+      <div class="stat-val blue" style="font-size:18px">${avg>0?Math.round(avg).toLocaleString('fr-CH')+' CHF':'—'}</div>
+    </div>
+    <div class="stat-card" style="cursor:default">
+      <div class="stat-label">Taux de confirmation</div>
+      <div class="stat-val" style="color:${txConv>=50?'#27ae60':'#e67e22'};font-size:22px">${txConv}%</div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:2px">${confirmes} confirmés / ${offresEnvoyees+confirmes} offres</div>
+    </div>
+    <div class="stat-card" style="cursor:default">
+      <div class="stat-label">Chantiers actifs</div>
+      <div class="stat-val blue">${enCours}</div>
+    </div>`;
+}
+
+function renderChartCA() {
+  // Compute monthly CA for last 12 months
+  const months = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString('fr-CH',{month:'short',year:'2-digit'}), ca: 0 });
+  }
+  const confirmed = ['confirme','materiel','attente-pose','pose','termine'];
+  chantiers.forEach(c => {
+    if (!c.montant || !confirmed.includes(c.statut)) return;
+    const dateStr = c.dateValidation || c.created;
+    if (!dateStr) return;
+    const d = new Date(dateStr);
+    const mi = months.findIndex(m => m.year === d.getFullYear() && m.month === d.getMonth());
+    if (mi >= 0) months[mi].ca += parseFloat(c.montant||0);
+  });
+
+  const maxCA = Math.max(...months.map(m => m.ca), 1);
+  const W = 600, H = 180, pad = 36, barW = Math.floor((W - pad*2) / 12) - 4;
+
+  const bars = months.map((m, i) => {
+    const x = pad + i * ((W - pad*2) / 12) + 2;
+    const bh = Math.max(m.ca > 0 ? Math.round((m.ca / maxCA) * (H - 40)) : 2, m.ca > 0 ? 4 : 2);
+    const y = H - 22 - bh;
+    const color = m.ca > 0 ? '#3498db' : '#e8eaed';
+    const label = m.ca > 0 ? (m.ca >= 1000 ? Math.round(m.ca/1000)+'k' : Math.round(m.ca)) : '';
+    return `
+      <rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3" fill="${color}" opacity="0.85"/>
+      ${label ? `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" font-size="9" fill="#555">${label}</text>` : ''}
+      <text x="${x + barW/2}" y="${H - 6}" text-anchor="middle" font-size="9" fill="#888">${m.label}</text>`;
+  }).join('');
+
+  document.getElementById('chart-ca-monthly').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
+      <line x1="${pad}" y1="${H-22}" x2="${W-pad}" y2="${H-22}" stroke="#ddd" stroke-width="1"/>
+      ${bars}
+    </svg>`;
+}
+
+function renderChartDonut() {
+  const types = {};
+  chantiers.forEach(c => {
+    if (c.statut === 'annule') return;
+    const t = c.type || 'Non défini';
+    types[t] = (types[t]||0) + 1;
+  });
+  const entries = Object.entries(types).sort((a,b) => b[1]-a[1]);
+  const total = entries.reduce((s,[,v]) => s+v, 0);
+  if (!total) { document.getElementById('chart-type-donut').innerHTML = '<p style="color:var(--text-light);font-size:13px;padding:20px 0">Aucune donnée</p>'; return; }
+
+  const colors = ['#3498db','#e67e22','#27ae60','#9b59b6','#e74c3c','#1abc9c','#f39c12'];
+  const cx = 90, cy = 90, r = 72, ri = 44;
+  let angle = -Math.PI / 2;
+  const slices = entries.map(([label, val], i) => {
+    const a = (val / total) * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(angle + a), y2 = cy + r * Math.sin(angle + a);
+    const xi1 = cx + ri * Math.cos(angle), yi1 = cy + ri * Math.sin(angle);
+    const xi2 = cx + ri * Math.cos(angle + a), yi2 = cy + ri * Math.sin(angle + a);
+    const lg = a > Math.PI ? 1 : 0;
+    const path = `M ${xi1} ${yi1} L ${x1} ${y1} A ${r} ${r} 0 ${lg} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${ri} ${ri} 0 ${lg} 0 ${xi1} ${yi1} Z`;
+    const pct = Math.round(val/total*100);
+    angle += a;
+    return { path, color: colors[i % colors.length], label, val, pct };
+  });
+
+  const legend = slices.map(s =>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <div style="width:11px;height:11px;border-radius:2px;background:${s.color};flex-shrink:0"></div>
+      <span style="font-size:11px;color:var(--text)">${esc(s.label)}</span>
+      <span style="font-size:11px;color:var(--text-light);margin-left:auto">${s.val} (${s.pct}%)</span>
+    </div>`).join('');
+
+  document.getElementById('chart-type-donut').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px">
+      <svg viewBox="0 0 180 180" width="140" style="flex-shrink:0">
+        ${slices.map(s => `<path d="${s.path}" fill="${s.color}" opacity="0.88"/>`).join('')}
+        <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="20" font-weight="700" fill="#2c3e50">${total}</text>
+        <text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="9" fill="#888">chantiers</text>
+      </svg>
+      <div style="flex:1">${legend}</div>
+    </div>`;
+}
+
+function renderChartFunnel() {
+  const steps = [
+    { key: ['attente-offre'],                     label: 'En attente offre',  color: '#95a5a6' },
+    { key: ['offre-envoyee'],                     label: 'Offre envoyée',     color: '#3498db' },
+    { key: ['confirme'],                           label: 'Confirmé',          color: '#9b59b6' },
+    { key: ['materiel','attente-pose'],            label: 'En préparation',    color: '#e67e22' },
+    { key: ['pose'],                               label: 'Posé',              color: '#27ae60' },
+    { key: ['termine'],                            label: 'Terminé',           color: '#2c3e50' },
+  ];
+  const counts = steps.map(s => ({ ...s, n: chantiers.filter(c => s.key.includes(c.statut)).length }));
+  const maxN = Math.max(...counts.map(s => s.n), 1);
+  const annules = chantiers.filter(c => c.statut === 'annule').length;
+
+  const bars = counts.map(s => {
+    const pct = Math.round(s.n / Math.max(chantiers.length, 1) * 100);
+    const w = Math.max(s.n / maxN * 100, s.n > 0 ? 2 : 0);
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="width:120px;text-align:right;font-size:12px;color:var(--text-light);white-space:nowrap">${s.label}</div>
+      <div style="flex:1;background:#f0f2f5;border-radius:4px;height:28px;position:relative;overflow:hidden">
+        <div style="height:100%;width:${w}%;background:${s.color};border-radius:4px;transition:width 0.4s;opacity:0.85"></div>
+        ${s.n > 0 ? `<span style="position:absolute;left:${Math.max(w,0)+1}%;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:${w>40?'white':'var(--text)'};left:${w>15?'8px':'calc('+w+'% + 6px)'};">${s.n}</span>` : ''}
+      </div>
+      <div style="width:36px;text-align:right;font-size:11px;color:var(--text-light)">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('chart-funnel').innerHTML = bars +
+    (annules ? `<div style="margin-top:8px;font-size:11px;color:#e74c3c">🚫 ${annules} chantier${annules>1?'s':''} annulé${annules>1?'s':''}</div>` : '');
+}
+
+function renderStatsOffres() {
+  const pending = chantiers.filter(c => {
+    if (!c.dateOffre || c.noConfirmation) return false;
+    return ['offre-envoyee','attente-offre'].includes(c.statut);
+  }).map(c => {
+    const days = Math.floor((Date.now() - new Date(c.dateOffre)) / (1000*60*60*24));
+    return { ...c, days };
+  }).sort((a,b) => b.days - a.days);
+
+  if (!pending.length) {
+    document.getElementById('stats-offres-table').innerHTML =
+      '<p style="color:#27ae60;font-size:13px">✓ Aucune offre en attente avec une date d\'envoi renseignée.</p>';
+    return;
+  }
+  const rows = pending.map(c => {
+    const color = c.days >= 30 ? '#e74c3c' : c.days >= 15 ? '#e67e22' : '#7f8c8d';
+    return `<tr onclick="openChantier('${c.id}')" style="cursor:pointer">
+      <td><strong>${esc(c.client)}</strong>${c.reference?`<br><small style="color:var(--text-light)">${esc(c.reference)}</small>`:''}</td>
+      <td>${c.noOffre ? esc(c.noOffre) : '—'}</td>
+      <td>${fmtDate(c.dateOffre)}</td>
+      <td style="font-weight:700;color:${color}">${c.days} jour${c.days>1?'s':''}</td>
+      <td>${c.montant ? fmtChf(c.montant) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('stats-offres-table').innerHTML = `
+    <table style="min-width:0">
+      <thead><tr>
+        <th>Client</th><th>N° Offre</th><th>Envoyée le</th><th>Âge</th><th>Montant</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function exportJSON() {
+  const data = { exported: new Date().toISOString(), chantiers, settings };
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
+  a.download = `fermaporte-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  toast('Backup exporté ✓', 'success');
+}
+
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.chantiers || !Array.isArray(data.chantiers)) {
+        toast('Fichier invalide — ce n\'est pas un backup Fermaporte', 'error');
+        return;
+      }
+      const n = data.chantiers.length;
+      if (!confirm(`Importer ${n} chantier${n!==1?'s':''} ?\n\nATTENTION : les données actuelles seront remplacées.`)) {
+        input.value = '';
+        return;
+      }
+      localStorage.setItem(STORE, JSON.stringify(data.chantiers));
+      if (data.settings) localStorage.setItem(SETTINGS_STORE, JSON.stringify(data.settings));
+      chantiers = data.chantiers;
+      settings = data.settings || settings;
+      input.value = '';
+      renderSummary();
+      renderTable();
+      toast(`✓ ${n} chantier${n!==1?'s':''} importé${n!==1?'s':''} avec succès`, 'success');
+    } catch(e) {
+      toast('Erreur lors de la lecture du fichier', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function printCommandePDF() {
+  const c = getCh(); if (!c) return;
+  const commandes = c.commandes || [];
+  const faire = c.faire || [];
+  const today = new Date().toLocaleDateString('fr-CH');
+
+  const statusLabel = r => {
+    if (r.recuLe)       return `<span style="color:#27ae60;font-weight:600">✓ Reçu le ${fmtDate(r.recuLe)}</span>`;
+    if (r.commandeDate) return `<span style="color:#e67e22;font-weight:600">Commandé le ${fmtDate(r.commandeDate)}</span>`;
+    return `<span style="color:#e74c3c;font-weight:600">À commander</span>`;
+  };
+  const faireStatus = r => r.commandeDate
+    ? `<span style="color:#27ae60;font-weight:600">✓ Fait le ${fmtDate(r.commandeDate)}</span>`
+    : `<span style="color:#e74c3c;font-weight:600">À faire</span>`;
+
+  const cmdRows = commandes.length ? commandes.map(r => `
+    <tr>
+      <td>${esc(r.produit)||'—'}</td>
+      <td>${esc(r.fournisseur)||'—'}</td>
+      <td style="text-align:center">${esc(r.qte)||'—'}</td>
+      <td>${r.delai ? fmtDate(r.delai) : '—'}</td>
+      <td>${statusLabel(r)}</td>
+      <td style="font-size:11px;color:#666">${esc(r.notes)||''}</td>
+    </tr>`).join('') : `<tr><td colspan="6" style="color:#999;text-align:center;padding:16px">Aucun article</td></tr>`;
+
+  const faireRows = faire.length ? faire.map(r => `
+    <tr>
+      <td>${esc(r.produit)||'—'}</td>
+      <td>${r.delai ? fmtDate(r.delai) : '—'}</td>
+      <td>${faireStatus(r)}</td>
+      <td style="font-size:11px;color:#666">${esc(r.notes)||''}</td>
+    </tr>`).join('') : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Feuille de commande — ${esc(c.client)}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #222; padding: 28px 32px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #2c3e50; }
+  .company { font-size: 22px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; }
+  .company-sub { font-size: 11px; color: #666; margin-top: 2px; }
+  .doc-title { text-align: right; }
+  .doc-title h1 { font-size: 17px; font-weight: 700; color: #e67e22; margin-bottom: 4px; }
+  .doc-title .date { font-size: 11px; color: #666; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+  .info-box { background: #f7f8fa; border-radius: 6px; padding: 12px 14px; border-left: 3px solid #2c3e50; }
+  .info-box h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 8px; }
+  .info-line { display: flex; gap: 6px; margin-bottom: 3px; }
+  .info-line .k { color: #666; min-width: 90px; }
+  .info-line .v { font-weight: 600; }
+  .section-title { font-size: 13px; font-weight: 700; color: #2c3e50; background: #eef0f3; padding: 7px 12px; border-radius: 4px; margin-bottom: 8px; margin-top: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: #2c3e50; color: white; padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 600; }
+  tbody td { padding: 6px 10px; border-bottom: 1px solid #e8eaed; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #fafbfc; }
+  .footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 10px; color: #999; }
+  .sign-box { margin-top: 28px; display: flex; gap: 40px; }
+  .sign-line { flex: 1; border-top: 1px solid #aaa; padding-top: 4px; font-size: 10px; color: #666; }
+  @media print {
+    body { padding: 15px 20px; }
+    @page { margin: 1cm; size: A4; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company">🚪 Fermaporte</div>
+      <div class="company-sub">Portes de garage &amp; Portails — Suisse romande</div>
+    </div>
+    <div class="doc-title">
+      <h1>Feuille de commande</h1>
+      <div class="date">Imprimé le ${today}</div>
+      ${c.reference ? `<div class="date" style="margin-top:2px">Réf. ${esc(c.reference)}</div>` : ''}
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <h3>Client</h3>
+      <div class="info-line"><span class="k">Nom</span><span class="v">${esc(c.client)}</span></div>
+      ${c.adresse  ? `<div class="info-line"><span class="k">Adresse</span><span class="v">${esc(c.adresse)}</span></div>` : ''}
+      ${c.telephone? `<div class="info-line"><span class="k">Tél.</span><span class="v">${esc(c.telephone)}</span></div>` : ''}
+      ${c.email    ? `<div class="info-line"><span class="k">Email</span><span class="v">${esc(c.email)}</span></div>` : ''}
+    </div>
+    <div class="info-box">
+      <h3>Chantier</h3>
+      ${c.type     ? `<div class="info-line"><span class="k">Type</span><span class="v">${esc(c.type)}</span></div>` : ''}
+      ${c.noOffre  ? `<div class="info-line"><span class="k">N° Offre</span><span class="v">${esc(c.noOffre)}</span></div>` : ''}
+      ${c.noConfirmation ? `<div class="info-line"><span class="k">N° Confirmation</span><span class="v">${esc(c.noConfirmation)}</span></div>` : ''}
+      ${c.montant  ? `<div class="info-line"><span class="k">Montant TTC</span><span class="v">${fmtChf(c.montant)}</span></div>` : ''}
+      ${c.dateLivraison ? `<div class="info-line"><span class="k">Livraison prévue</span><span class="v">${fmtDate(c.dateLivraison)}</span></div>` : ''}
+    </div>
+  </div>
+
+  <div class="section-title">📦 Matériel à commander</div>
+  <table>
+    <thead><tr>
+      <th style="width:26%">Produit / Description</th>
+      <th style="width:16%">Fournisseur</th>
+      <th style="width:6%;text-align:center">Qté</th>
+      <th style="width:12%">Délai souhaité</th>
+      <th style="width:20%">Statut</th>
+      <th>Notes</th>
+    </tr></thead>
+    <tbody>${cmdRows}</tbody>
+  </table>
+
+  ${faire.length ? `
+  <div class="section-title">✅ Tâches à effectuer</div>
+  <table>
+    <thead><tr>
+      <th style="width:35%">Tâche</th>
+      <th style="width:15%">Délai</th>
+      <th style="width:22%">Statut</th>
+      <th>Notes</th>
+    </tr></thead>
+    <tbody>${faireRows}</tbody>
+  </table>` : ''}
+
+  ${c.remarques ? `<div style="margin-top:20px;padding:10px 14px;background:#fff8f0;border-radius:6px;border-left:3px solid #e67e22"><strong style="font-size:11px;color:#666;text-transform:uppercase">Remarques</strong><p style="margin-top:6px;line-height:1.5">${esc(c.remarques).replace(/\n/g,'<br>')}</p></div>` : ''}
+
+  <div class="sign-box">
+    <div class="sign-line">Établi par</div>
+    <div class="sign-line">Vérifié / Approuvé</div>
+  </div>
+
+  <div class="footer">
+    <span>Fermaporte — Document interne</span>
+    <span>Chantier : ${esc(c.client)}${c.reference?' · '+esc(c.reference):''}</span>
+    <span>Imprimé le ${today}</span>
+  </div>
+
+  <script>window.onload = () => window.print();<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+// ════════ TOAST ════════
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast '+type;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+// ════════ PÉRIODE FILTRE ════════
+let currentPeriod = '';
+
+function setPeriod(btn, period) {
+  currentPeriod = period;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const customDiv = document.getElementById('custom-period');
+  customDiv.style.display = period === 'custom' ? 'flex' : 'none';
+  renderCommandesGlobal();
+}
+
+function periodDates() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (currentPeriod === 'retard') {
+    return { from: null, to: new Date(today.getTime() - 1), isRetard: true };
+  }
+  if (currentPeriod === 'semaine') {
+    const to = new Date(today); to.setDate(today.getDate() + 7);
+    return { from: today, to };
+  }
+  if (currentPeriod === 'mois') {
+    const to = new Date(today); to.setDate(today.getDate() + 30);
+    return { from: today, to };
+  }
+  if (currentPeriod === 'custom') {
+    const from = document.getElementById('flt-date-from').value;
+    const to   = document.getElementById('flt-date-to').value;
+    return {
+      from: from ? new Date(from) : null,
+      to:   to   ? new Date(to)   : null
+    };
+  }
+  return null;
+}
+
+function rowDelaiDate(r) {
+  if (!r.delai) return null;
+  const d = new Date(r.delai); d.setHours(0,0,0,0); return d;
+}
+
+// ════════ SUIVI COMMANDES GLOBAL ════════
+function showCommandesGlobal() {
+  showView('commandes');
+  document.getElementById('breadcrumb').style.display = 'none';
+  document.getElementById('btn-new').style.display = 'none';
+  renderCommandesGlobal();
+}
+
+function allCommandes() {
+  const rows = [];
+  chantiers.forEach(c => {
+    (c.commandes||[]).forEach((r,i) => {
+      if (!r.produit && !r.fournisseur) return;
+      rows.push({...r, _kind:'commande', _chantierId:c.id, _client:c.client, _ref:c.reference, _idx:i});
+    });
+    (c.faire||[]).forEach((r,i) => {
+      if (!r.chose) return;
+      rows.push({
+        _kind:'faire', _chantierId:c.id, _client:c.client, _ref:c.reference, _idx:i,
+        produit: r.chose, fournisseur: r.fairePar, qte: '—',
+        delai: r.delai, commandeDate: r.faitLe, recuLe: '', _faitLe: r.faitLe
+      });
+    });
+  });
+  return rows;
+}
+
+function renderCommandesGlobal() {
+  const fStatut = document.getElementById('flt-cmd-statut').value;
+  const fFourn  = document.getElementById('flt-cmd-fournisseur').value;
+  const fType   = document.getElementById('flt-cmd-type').value;
+
+  let rows = allCommandes();
+
+  // Populate fournisseur filter (commandes only)
+  const fournisseurs = [...new Set(rows.filter(r=>r._kind==='commande').map(r=>r.fournisseur).filter(Boolean))].sort();
+  const selF = document.getElementById('flt-cmd-fournisseur');
+  const curF = selF.value;
+  selF.innerHTML = '<option value="">Tous les fournisseurs</option>' +
+    fournisseurs.map(f=>`<option value="${esc(f)}" ${f===curF?'selected':''}>${esc(f)}</option>`).join('');
+
+  // Filters
+  if (fType === 'commande') rows = rows.filter(r => r._kind==='commande');
+  if (fType === 'faire')    rows = rows.filter(r => r._kind==='faire');
+  if (fFourn)               rows = rows.filter(r => r.fournisseur === fFourn);
+  if (fStatut === 'acommander') rows = rows.filter(r => !r.commandeDate && !r.recuLe);
+  if (fStatut === 'commande')   rows = rows.filter(r => r.commandeDate && !r.recuLe && r._kind==='commande');
+  if (fStatut === 'recu')       rows = rows.filter(r => r.recuLe || (r._kind==='faire' && r.commandeDate));
+
+  // Period filter (on délai)
+  const pd = periodDates();
+  if (pd) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    rows = rows.filter(r => {
+      const d = rowDelaiDate(r);
+      if (pd.isRetard) {
+        // En retard = délai dépassé ET pas encore reçu/fait
+        return d && d < today && !r.recuLe && !r._faitLe;
+      }
+      if (!d) return false;
+      if (pd.from && d < pd.from) return false;
+      if (pd.to   && d > pd.to)   return false;
+      return true;
+    });
+  }
+
+  // Summary counts on all rows
+  const all = allCommandes();
+  const allCmd = all.filter(r=>r._kind==='commande');
+  const allFaire = all.filter(r=>r._kind==='faire');
+  const aFaire  = allFaire.filter(r=>!r.commandeDate).length;
+  const aCmd    = allCmd.filter(r=>!r.commandeDate&&!r.recuLe).length;
+  const cmdPas  = allCmd.filter(r=>r.commandeDate&&!r.recuLe).length;
+  const recus   = allCmd.filter(r=>r.recuLe).length;
+  const faitFaire = allFaire.filter(r=>r.commandeDate).length;
+
+  document.getElementById('cmd-summary-row').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Commandes à passer</div><div class="stat-val" style="color:#e74c3c">${aCmd}</div></div>
+    <div class="stat-card"><div class="stat-label">Commandé, en attente</div><div class="stat-val orange">${cmdPas}</div></div>
+    <div class="stat-card"><div class="stat-label">Reçu</div><div class="stat-val green">${recus}</div></div>
+    <div class="stat-card"><div class="stat-label">Tâches en cours</div><div class="stat-val blue">${aFaire}</div></div>
+    <div class="stat-card"><div class="stat-label">Tâches terminées</div><div class="stat-val" style="color:var(--text-light)">${faitFaire}</div></div>`;
+
+  const tbody = document.getElementById('cmd-global-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="big">📦</div><p>Aucun élément trouvé.</p></div></td></tr>`;
+    return;
+  }
+  const todayMs = new Date().setHours(0,0,0,0);
+  tbody.innerHTML = rows.map(r => {
+    const d = rowDelaiDate(r);
+    const retard = d && d.getTime() < todayMs && !r.recuLe && !r._faitLe && !r.commandeDate;
+    return `
+    <tr style="cursor:pointer;${retard?'background:#fff5f5;border-left:3px solid #e74c3c;':''}${r._kind==='faire'&&!retard?'background:#fafbfc':''}" onclick="openChantier('${r._chantierId}');setTimeout(()=>switchTab('commande',document.querySelectorAll('.tab-btn')[3]),300)">
+      <td>${r._kind==='faire'
+        ? (r.commandeDate ? `<span class="badge badge-pose">✓ Fait</span>` : (retard?`<span class="badge badge-annule">⚠️ En retard</span>`:`<span class="badge badge-attente-offre">À faire</span>`))
+        : (retard && !r.commandeDate ? `<span class="badge badge-annule">⚠️ En retard</span>` : commandeStatusBadge(r))}</td>
+      <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${r._kind==='faire'?'#eaf4fb':'#fef3ea'};color:${r._kind==='faire'?'#3498db':'#e67e22'};font-weight:600">${r._kind==='faire'?'Tâche':'Commande'}</span></td>
+      <td><strong>${esc(r._client)}</strong>${r._ref?`<br><small style="color:var(--text-light)">${esc(r._ref)}</small>`:''}</td>
+      <td>${esc(r.produit)||'—'}</td>
+      <td>${esc(r.fournisseur)||'—'}</td>
+      <td>${r.qte!=='—'?esc(r.qte)||'—':'—'}</td>
+      <td>${r.delai?fmtDate(r.delai):'—'}</td>
+      <td>${r.commandeDate?fmtDate(r.commandeDate):'<span class="chk-no">—</span>'}</td>
+      <td>${r.recuLe?fmtDate(r.recuLe):(r._kind==='faire'?'':'<span class="chk-no">—</span>')}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════ INIT ════════
+load();
+renderSummary();
+renderTable();
+</script>
+</body>
+</html>
