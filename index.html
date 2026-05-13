@@ -517,15 +517,26 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
     <div class="tab-content" id="tab-calc">
       <form id="form-calc" onsubmit="saveCalc(event)">
         <div class="module-card">
-          <div class="module-title">Paramètres de la calculation</div>
+          <div class="module-title" style="display:flex;align-items:center;justify-content:space-between">
+            Paramètres de la calculation
+            <button type="button" class="btn btn-ghost btn-sm" onclick="resetCalcDefaults()" title="Remettre les valeurs par défaut des Paramètres">🔄 Valeurs par défaut</button>
+          </div>
           <div class="form-grid">
             <div class="form-group">
               <label class="lbl">Prix Condor (EUR) *</label>
               <input type="number" id="c-prix-eur" step="0.01" placeholder="Ex: 1250.00" oninput="calcUpdate()">
             </div>
             <div class="form-group">
-              <label class="lbl">Taux EUR → CHF <small style="color:var(--accent);cursor:pointer" onclick="showSettings()">(modifier dans ⚙️)</small></label>
-              <input type="number" id="c-taux" step="0.0001" readonly>
+              <label class="lbl">Taux EUR → CHF</label>
+              <input type="number" id="c-taux" step="0.0001" placeholder="Ex: 0.9650" oninput="calcUpdate()">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Taux de douane (%)</label>
+              <input type="number" id="c-douane" step="0.1" placeholder="Ex: 3.0" oninput="calcUpdate()">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Marge (%)</label>
+              <input type="number" id="c-marge" step="0.5" placeholder="Ex: 35" oninput="calcUpdate()">
             </div>
           </div>
         </div>
@@ -540,7 +551,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
               <span class="val-display" id="cv-chf">—</span>
             </div>
             <div class="calc-line">
-              <label>Douane (<span id="cv-taux-douane-pct">—</span>%)</label>
+              <label>Douane</label>
               <span class="val-display" id="cv-douane">—</span>
             </div>
             <div class="calc-total-line">
@@ -572,7 +583,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
           <div class="calc-section">
             <div class="calc-section-title">Marge &amp; Prix de vente</div>
             <div class="calc-line">
-              <label>Marge (<span id="cv-marge-pct">—</span>%)</label>
+              <label>Marge</label>
               <span class="val-display" id="cv-marge">—</span>
             </div>
             <div class="calc-line">
@@ -889,12 +900,26 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
           <input type="number" id="s-marge" step="0.5" placeholder="Ex: 35">
         </div>
         <div class="form-group">
+          <label class="lbl">Pose par défaut (CHF)</label>
+          <input type="number" id="s-pose" step="1" placeholder="Ex: 800">
+        </div>
+        <div class="form-group">
           <label class="lbl">Transport par défaut (CHF)</label>
           <input type="number" id="s-transport" step="1" placeholder="Ex: 120">
         </div>
         <div class="form-group">
           <label class="lbl">Bureau / Télécommandes par défaut (CHF)</label>
           <input type="number" id="s-bureau" step="1" placeholder="Ex: 150">
+        </div>
+        <div class="form-group">
+          <label class="lbl">Arrondi par défaut</label>
+          <select id="s-arrondi" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+            <option value="1">1 CHF</option>
+            <option value="5">5 CHF</option>
+            <option value="10">10 CHF</option>
+            <option value="50">50 CHF</option>
+            <option value="100">100 CHF</option>
+          </select>
         </div>
       </div>
       <div style="margin-top:16px">
@@ -1126,8 +1151,10 @@ function showSettings() {
   document.getElementById('s-taux').value      = settings.taux;
   document.getElementById('s-douane').value    = settings.douane;
   document.getElementById('s-marge').value     = settings.marge;
+  document.getElementById('s-pose').value      = settings.pose || '';
   document.getElementById('s-transport').value = settings.transport;
   document.getElementById('s-bureau').value    = settings.bureau;
+  document.getElementById('s-arrondi').value   = settings.arrondi || '50';
   renderMonteursList();
 }
 
@@ -1135,8 +1162,10 @@ function saveSettings() {
   settings.taux      = parseFloat(document.getElementById('s-taux').value)      || 0.965;
   settings.douane    = parseFloat(document.getElementById('s-douane').value)    || 3;
   settings.marge     = parseFloat(document.getElementById('s-marge').value)     || 35;
+  settings.pose      = parseFloat(document.getElementById('s-pose').value)      || 0;
   settings.transport = parseFloat(document.getElementById('s-transport').value) || 120;
   settings.bureau    = parseFloat(document.getElementById('s-bureau').value)    || 150;
+  settings.arrondi   = document.getElementById('s-arrondi').value               || '50';
   // monteurs sauvegardés en temps réel via addMonteur/removeMonteur
   localStorage.setItem(SETTINGS_STORE, JSON.stringify(settings));
   toast('Paramètres sauvegardés ✓','success');
@@ -1536,20 +1565,34 @@ function saveMesure(e) {
 function loadCalc() {
   const c = getCh(); if (!c) return;
   const calc = c.calc || {};
-  document.getElementById('c-prix-eur').value = calc.prixEur || '';
-  document.getElementById('c-taux').value = settings.taux;
-  document.getElementById('c-pose').value = calc.pose !== undefined ? calc.pose : settings.transport||'';
-  document.getElementById('c-bureau').value = calc.bureau !== undefined ? calc.bureau : settings.bureau||'';
-  document.getElementById('c-annexes').value = calc.annexes || '';
-  document.getElementById('c-transport').value = calc.transport !== undefined ? calc.transport : settings.transport||'';
-  if (calc.arrondi) document.getElementById('c-arrondi').value = calc.arrondi;
+  document.getElementById('c-prix-eur').value  = calc.prixEur   || '';
+  document.getElementById('c-taux').value      = calc.taux      !== undefined ? calc.taux      : settings.taux      || 0.965;
+  document.getElementById('c-douane').value    = calc.douane    !== undefined ? calc.douane    : settings.douane    || 3;
+  document.getElementById('c-marge').value     = calc.marge     !== undefined ? calc.marge     : settings.marge     || 35;
+  document.getElementById('c-pose').value      = calc.pose      !== undefined ? calc.pose      : settings.pose      || '';
+  document.getElementById('c-bureau').value    = calc.bureau    !== undefined ? calc.bureau    : settings.bureau    || '';
+  document.getElementById('c-annexes').value   = calc.annexes   || '';
+  document.getElementById('c-transport').value = calc.transport !== undefined ? calc.transport : settings.transport || '';
+  document.getElementById('c-arrondi').value   = calc.arrondi   || settings.arrondi            || '50';
   calcUpdate();
 }
 
+function resetCalcDefaults() {
+  document.getElementById('c-taux').value      = settings.taux      || 0.965;
+  document.getElementById('c-douane').value    = settings.douane    || 3;
+  document.getElementById('c-marge').value     = settings.marge     || 35;
+  document.getElementById('c-pose').value      = settings.pose      || '';
+  document.getElementById('c-bureau').value    = settings.bureau    || '';
+  document.getElementById('c-transport').value = settings.transport || '';
+  document.getElementById('c-arrondi').value   = settings.arrondi   || '50';
+  calcUpdate();
+  toast('Valeurs par défaut appliquées', 'success');
+}
+
 function calcUpdate() {
-  const taux    = parseFloat(settings.taux)  || 0.965;
-  const tDouane = parseFloat(settings.douane) || 3;
-  const tMarge  = parseFloat(settings.marge)  || 35;
+  const taux    = parseFloat(document.getElementById('c-taux').value)   || 0.965;
+  const tDouane = parseFloat(document.getElementById('c-douane').value) || 3;
+  const tMarge  = parseFloat(document.getElementById('c-marge').value)  || 35;
 
   const eur      = parseFloat(document.getElementById('c-prix-eur').value) || 0;
   const pose     = parseFloat(document.getElementById('c-pose').value)     || 0;
@@ -1557,10 +1600,6 @@ function calcUpdate() {
   const annexes  = parseFloat(document.getElementById('c-annexes').value)  || 0;
   const transport= parseFloat(document.getElementById('c-transport').value)|| 0;
   const arrondi  = parseInt(document.getElementById('c-arrondi').value)    || 50;
-
-  document.getElementById('cv-taux-douane-pct').textContent = tDouane.toFixed(1);
-  document.getElementById('cv-marge-pct').textContent = tMarge.toFixed(1);
-  document.getElementById('c-taux').value = taux;
 
   if (!eur) {
     ['cv-chf','cv-douane','cv-achat-total','cv-sous-total','cv-marge','cv-pv-final'].forEach(id=>document.getElementById(id).textContent='—');
@@ -1591,13 +1630,16 @@ function saveCalc(e) {
   const eur = parseFloat(document.getElementById('c-prix-eur').value)||0;
   const pvFinal = lastCalcPvFinal || 0;
   c.calc = {
-    prixEur: eur,
-    pose: parseFloat(document.getElementById('c-pose').value)||0,
-    bureau: parseFloat(document.getElementById('c-bureau').value)||0,
-    annexes: parseFloat(document.getElementById('c-annexes').value)||0,
-    transport: parseFloat(document.getElementById('c-transport').value)||0,
-    arrondi: document.getElementById('c-arrondi').value,
-    pvFinal: pvFinal,
+    prixEur:   eur,
+    taux:      parseFloat(document.getElementById('c-taux').value)      || 0.965,
+    douane:    parseFloat(document.getElementById('c-douane').value)    || 3,
+    marge:     parseFloat(document.getElementById('c-marge').value)     || 35,
+    pose:      parseFloat(document.getElementById('c-pose').value)      || 0,
+    bureau:    parseFloat(document.getElementById('c-bureau').value)    || 0,
+    annexes:   parseFloat(document.getElementById('c-annexes').value)   || 0,
+    transport: parseFloat(document.getElementById('c-transport').value) || 0,
+    arrondi:   document.getElementById('c-arrondi').value,
+    pvFinal:   pvFinal,
   };
   if (pvFinal) c.montant = pvFinal;
   c.updated = now();
