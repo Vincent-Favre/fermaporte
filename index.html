@@ -342,7 +342,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
       </select>
       <span class="count-label" id="count-label"></span>
       <div class="toolbar-right" style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 15:30</span>
+        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 16:00</span>
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
         <button class="btn btn-secondary btn-sm" onclick="exportJSON()" title="Sauvegarde complète de toutes les données">💾 Backup JSON</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()" title="Restaurer depuis un fichier backup JSON">↑ Importer JSON</button>
@@ -1094,6 +1094,15 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
               </div>
             </div>
 
+            <!-- Encaissement -->
+            <div style="background:#f0faf4;border:1px solid #a8d5b5;border-radius:7px;padding:10px 12px">
+              <div class="lbl" style="margin-bottom:5px;color:#1a6e3c">✓ Encaissement (clôture du chantier)</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div><label class="lbl" style="font-size:10px">Date d'encaissement</label><input type="date" id="f-d-encaissement" style="width:100%"></div>
+                <div><label class="lbl" style="font-size:10px">Remarque</label><input type="text" id="f-encaissement-note" placeholder="Ex: virement reçu" style="width:100%"></div>
+              </div>
+            </div>
+
           </div>
 
         </div><!-- /modal-admin-fields -->
@@ -1140,6 +1149,7 @@ const MONTAGE_STEPS = ['Dépose porte existante','Pose châssis','État panneaux
 // ════════ STATUT AUTO-DÉRIVÉ ════════
 function computeStatut(c) {
   if (c.statut === 'annule') return 'annule'; // seul statut manuel
+  if (c.dateEncaissement) return 'termine';
   if (c.facture && parseFloat(c.facture) > 0) return 'facture';
   if (c.montage?.sigDate) return 'pose';
   if (c.datePose || c.montage?.dateLivraison) return 'attente-pose';
@@ -1545,6 +1555,7 @@ function renderResume() {
       ${row('Acompte',c.acompte?(fmtChf(c.acompte)+(c.dateAcompte?' — '+fmtDate(c.dateAcompte):'')+(c.noFact1?' — '+c.noFact1:'')):'') }
       ${row('2ème acompte',c.acompte2?(fmtChf(c.acompte2)+(c.dateAcompte2?' — '+fmtDate(c.dateAcompte2):'')+(c.noFact2?' — '+c.noFact2:'')):'') }
       ${row('Facture finale',c.facture?(fmtChf(c.facture)+(c.dateFacture?' — '+fmtDate(c.dateFacture):'')+(c.noFactFin?' — '+c.noFactFin:'')):'') }
+      ${c.dateEncaissement?`<div class="info-line" style="background:#f0faf4;border-radius:5px;padding:3px 7px"><span class="info-key" style="color:#1a6e3c">✓ Encaissé le</span><span class="info-val" style="color:#1a6e3c;font-weight:600">${fmtDate(c.dateEncaissement)}${c.encaissementNote?' — '+c.encaissementNote:''}</span></div>`:''}
     </div>
     ${(c.mesure&&c.mesure.typePorte)?`<div class="info-block"><div class="info-block-title">Prise de mesure</div>${row('Type de porte',esc(c.mesure.typePorte))}${row('Dimensions',c.mesure.larg&&c.mesure.haut?c.mesure.larg+' × '+c.mesure.haut+' mm':'')}${row('Couleur',esc(c.mesure.couleur))}</div>`:''}
     ${(c.calc&&c.calc.pvFinal)?`<div class="info-block"><div class="info-block-title">Calculation</div>${row('Prix Condor (EUR)',c.calc.prixEur?c.calc.prixEur+' EUR':'')}${row('Prix de vente calculé',fmtChf(c.calc.pvFinal))}</div>`:''}
@@ -1950,6 +1961,7 @@ function openEditModal() {
   fill('f-acompte',c.acompte); fill('f-d-acompte',c.dateAcompte); fill('f-no-fact1',c.noFact1);
   fill('f-acompte2',c.acompte2); fill('f-d-acompte2',c.dateAcompte2); fill('f-no-fact2',c.noFact2);
   fill('f-facture',c.facture); fill('f-d-facture',c.dateFacture); fill('f-no-fact-fin',c.noFactFin);
+  fill('f-d-encaissement',c.dateEncaissement); fill('f-encaissement-note',c.encaissementNote);
   fill('f-remarques',c.remarques);
   document.getElementById('modal-overlay').classList.add('active');
 }
@@ -1972,6 +1984,7 @@ function saveChantierMeta(e) {
     acompte: g('f-acompte'), dateAcompte: g('f-d-acompte'), noFact1: g('f-no-fact1'),
     acompte2: g('f-acompte2'), dateAcompte2: g('f-d-acompte2'), noFact2: g('f-no-fact2'),
     facture: g('f-facture'), dateFacture: g('f-d-facture'), noFactFin: g('f-no-fact-fin'),
+    dateEncaissement: g('f-d-encaissement'), encaissementNote: g('f-encaissement-note'),
     remarques: g('f-remarques'),
     // Préserver statut 'annule' si existant, sinon sera recalculé
     statut: !isNew && getCh()?.statut === 'annule' ? 'annule' : '',
