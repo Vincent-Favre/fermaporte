@@ -341,7 +341,8 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
         <option value="Autre">Autre</option>
       </select>
       <span class="count-label" id="count-label"></span>
-      <div class="toolbar-right">
+      <div class="toolbar-right" style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 11:17</span>
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
         <button class="btn btn-secondary btn-sm" onclick="exportJSON()" title="Sauvegarde complète de toutes les données">💾 Backup JSON</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()" title="Restaurer depuis un fichier backup JSON">↑ Importer JSON</button>
