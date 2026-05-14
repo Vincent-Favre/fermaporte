@@ -378,7 +378,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
       <div class="tabs" id="tabs-bar">
         <button class="tab-btn active" onclick="switchTab('resume',this)">📋 Résumé</button>
         <button class="tab-btn" onclick="switchTab('mesure',this)">📐 Prise de mesure</button>
-        <button class="tab-btn" onclick="switchTab('calc',this)">🧮 Calculation</button>
+        <button class="tab-btn" onclick="switchTab('calc',this)">📋 Offre</button>
         <button class="tab-btn" onclick="switchTab('commande',this)">📦 Commande</button>
         <button class="tab-btn" onclick="switchTab('montage',this)">🔧 Montage</button>
       </div>
@@ -611,9 +611,36 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
           <div style="margin-top:12px;padding:12px;background:#fff8f0;border-radius:8px;border:1px solid #fde0c0;font-size:12px;color:var(--text-light)">
             💡 Ce montant est à saisir dans Winbiz pour établir l'offre.
           </div>
-          <div class="save-bar">
-            <button type="submit" class="btn btn-primary">💾 Enregistrer la calculation</button>
+        </div>
+
+        <div class="module-card" style="margin-top:14px">
+          <div class="module-title">Offre &amp; Confirmation</div>
+          <div class="calc-section" style="padding-top:0">
+            <div class="calc-section-title">Offre envoyée</div>
+            <div class="calc-line">
+              <label>N° Offre Winbiz</label>
+              <input type="text" id="c-no-offre" placeholder="Ex: 2025-042" style="width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+            </div>
+            <div class="calc-line">
+              <label>Date d'envoi</label>
+              <input type="date" id="c-d-offre" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+            </div>
           </div>
+          <div class="calc-section">
+            <div class="calc-section-title">Confirmation client</div>
+            <div class="calc-line">
+              <label>N° Confirmation</label>
+              <input type="text" id="c-no-conf" placeholder="Ex: CC-2025-042" style="width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+            </div>
+            <div class="calc-line">
+              <label>Validé par le client le</label>
+              <input type="date" id="c-d-val" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+            </div>
+          </div>
+          <div class="save-bar">
+            <button type="submit" class="btn btn-primary">💾 Enregistrer l'offre</button>
+          </div>
+        </div>
         </div>
       </form>
     </div>
@@ -1007,17 +1034,18 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
               <label class="lbl">Date d'envoi de l'offre</label>
               <input type="date" id="f-d-offre">
             </div>
-            <div class="form-group">
-              <label class="lbl">Validé par le client le</label>
-              <input type="date" id="f-date-val">
+            <div class="form-group" style="grid-column:1/-1">
+              <div style="background:#f0f8f0;border:1px solid #b7ddb7;border-radius:8px;padding:8px 12px;font-size:12px;color:#2d6a2d">
+                💡 <strong>N° Confirmation &amp; date de validation</strong> — à saisir dans l'onglet 📋 Offre.
+              </div>
+              <input type="hidden" id="f-date-val">
+              <input type="hidden" id="f-no-conf">
             </div>
-            <div class="form-group">
-              <label class="lbl">N° Confirmation</label>
-              <input type="text" id="f-no-conf">
-            </div>
-            <div class="form-group">
-              <label class="lbl">Montant TTC (CHF)</label>
-              <input type="number" id="f-montant" step="0.05" placeholder="Calculé auto depuis 🧮">
+            <div class="form-group" style="grid-column:1/-1">
+              <div style="background:#f0f8f0;border:1px solid #b7ddb7;border-radius:8px;padding:8px 12px;font-size:12px;color:#2d6a2d">
+                💡 <strong>Montant TTC</strong> — piloté par l'onglet 📋 Offre (prix calculé). Modifier le calcul pour changer le montant.
+              </div>
+              <input type="hidden" id="f-montant">
             </div>
           </div>
 
@@ -1595,6 +1623,10 @@ function loadCalc() {
   document.getElementById('c-annexes').value   = calc.annexes   || '';
   document.getElementById('c-transport').value = calc.transport !== undefined ? calc.transport : settings.transport || '';
   document.getElementById('c-arrondi').value   = calc.arrondi   || settings.arrondi            || '50';
+  document.getElementById('c-no-offre').value  = calc.noOffre      || c.noOffre        || '';
+  document.getElementById('c-d-offre').value   = calc.dateOffre    || c.dateOffre      || '';
+  document.getElementById('c-no-conf').value   = calc.noConf       || c.noConfirmation || '';
+  document.getElementById('c-d-val').value     = calc.dateValidation || c.dateValidation || '';
   calcUpdate();
 }
 
@@ -1661,8 +1693,17 @@ function saveCalc(e) {
     transport: parseFloat(document.getElementById('c-transport').value) || 0,
     arrondi:   document.getElementById('c-arrondi').value,
     pvFinal:   pvFinal,
+    noOffre:       document.getElementById('c-no-offre').value.trim(),
+    dateOffre:     document.getElementById('c-d-offre').value,
+    noConf:        document.getElementById('c-no-conf').value.trim(),
+    dateValidation: document.getElementById('c-d-val').value,
   };
+  // Synchroniser avec les champs principaux du chantier
   if (pvFinal) c.montant = pvFinal;
+  if (c.calc.noOffre)        c.noOffre        = c.calc.noOffre;
+  if (c.calc.dateOffre)      c.dateOffre      = c.calc.dateOffre;
+  if (c.calc.noConf)         c.noConfirmation = c.calc.noConf;
+  if (c.calc.dateValidation) c.dateValidation = c.calc.dateValidation;
   c.updated = now();
   applyComputedStatut(c); save(); renderResume(); toast('Calculation enregistrée ✓','success');
 }
