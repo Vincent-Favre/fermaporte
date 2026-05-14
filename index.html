@@ -342,7 +342,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
       </select>
       <span class="count-label" id="count-label"></span>
       <div class="toolbar-right" style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 11:17</span>
+        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 15:30</span>
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
         <button class="btn btn-secondary btn-sm" onclick="exportJSON()" title="Sauvegarde complète de toutes les données">💾 Backup JSON</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()" title="Restaurer depuis un fichier backup JSON">↑ Importer JSON</button>
@@ -1062,31 +1062,38 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
           </div>
 
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-light);letter-spacing:0.5px;padding:14px 0 8px;border-top:1px solid var(--border)">Facturation</div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="lbl">Acompte (CHF)</label>
-              <input type="number" id="f-acompte" step="0.05">
+          <div style="display:flex;flex-direction:column;gap:10px">
+
+            <!-- Acompte 1 -->
+            <div>
+              <div class="lbl" style="margin-bottom:5px">Acompte 1</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                <div><label class="lbl" style="font-size:10px">Montant (CHF)</label><input type="number" id="f-acompte" step="0.05" style="width:100%"></div>
+                <div><label class="lbl" style="font-size:10px">Date</label><input type="date" id="f-d-acompte" style="width:100%"></div>
+                <div><label class="lbl" style="font-size:10px">N° Winbiz</label><input type="text" id="f-no-fact1" placeholder="Ex: FA-2025-001" style="width:100%"></div>
+              </div>
             </div>
-            <div class="form-group">
-              <label class="lbl">Date acompte</label>
-              <input type="date" id="f-d-acompte">
+
+            <!-- Acompte 2 -->
+            <div>
+              <div class="lbl" style="margin-bottom:5px">Acompte 2</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                <div><label class="lbl" style="font-size:10px">Montant (CHF)</label><input type="number" id="f-acompte2" step="0.05" style="width:100%"></div>
+                <div><label class="lbl" style="font-size:10px">Date</label><input type="date" id="f-d-acompte2" style="width:100%"></div>
+                <div><label class="lbl" style="font-size:10px">N° Winbiz</label><input type="text" id="f-no-fact2" placeholder="Ex: FA-2025-002" style="width:100%"></div>
+              </div>
             </div>
-            <div class="form-group">
-              <label class="lbl">2ème acompte (CHF)</label>
-              <input type="number" id="f-acompte2" step="0.05">
+
+            <!-- Facture finale -->
+            <div>
+              <div class="lbl" style="margin-bottom:5px">Facture finale</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                <div><label class="lbl" style="font-size:10px">Montant (CHF)</label><input type="number" id="f-facture" step="0.05" style="width:100%"></div>
+                <div><label class="lbl" style="font-size:10px">Date</label><input type="date" id="f-d-facture" style="width:100%"></div>
+                <div><label class="lbl" style="font-size:10px">N° Winbiz</label><input type="text" id="f-no-fact-fin" placeholder="Ex: FA-2025-003" style="width:100%"></div>
+              </div>
             </div>
-            <div class="form-group">
-              <label class="lbl">Date 2ème acompte</label>
-              <input type="date" id="f-d-acompte2">
-            </div>
-            <div class="form-group">
-              <label class="lbl">Facture finale (CHF)</label>
-              <input type="number" id="f-facture" step="0.05">
-            </div>
-            <div class="form-group">
-              <label class="lbl">Date facture finale</label>
-              <input type="date" id="f-d-facture">
-            </div>
+
           </div>
 
         </div><!-- /modal-admin-fields -->
@@ -1535,9 +1542,9 @@ function renderResume() {
     </div>
     <div class="info-block">
       <div class="info-block-title">Facturation</div>
-      ${row('Acompte',c.acompte?(fmtChf(c.acompte)+(c.dateAcompte?' — '+fmtDate(c.dateAcompte):'')):'') }
-      ${row('2ème acompte',c.acompte2?(fmtChf(c.acompte2)+(c.dateAcompte2?' — '+fmtDate(c.dateAcompte2):'')):'') }
-      ${row('Facture finale',c.facture?(fmtChf(c.facture)+(c.dateFacture?' — '+fmtDate(c.dateFacture):'')):'') }
+      ${row('Acompte',c.acompte?(fmtChf(c.acompte)+(c.dateAcompte?' — '+fmtDate(c.dateAcompte):'')+(c.noFact1?' — '+c.noFact1:'')):'') }
+      ${row('2ème acompte',c.acompte2?(fmtChf(c.acompte2)+(c.dateAcompte2?' — '+fmtDate(c.dateAcompte2):'')+(c.noFact2?' — '+c.noFact2:'')):'') }
+      ${row('Facture finale',c.facture?(fmtChf(c.facture)+(c.dateFacture?' — '+fmtDate(c.dateFacture):'')+(c.noFactFin?' — '+c.noFactFin:'')):'') }
     </div>
     ${(c.mesure&&c.mesure.typePorte)?`<div class="info-block"><div class="info-block-title">Prise de mesure</div>${row('Type de porte',esc(c.mesure.typePorte))}${row('Dimensions',c.mesure.larg&&c.mesure.haut?c.mesure.larg+' × '+c.mesure.haut+' mm':'')}${row('Couleur',esc(c.mesure.couleur))}</div>`:''}
     ${(c.calc&&c.calc.pvFinal)?`<div class="info-block"><div class="info-block-title">Calculation</div>${row('Prix Condor (EUR)',c.calc.prixEur?c.calc.prixEur+' EUR':'')}${row('Prix de vente calculé',fmtChf(c.calc.pvFinal))}</div>`:''}
@@ -1940,9 +1947,9 @@ function openEditModal() {
   fill('f-type',c.type); fill('f-date-val',c.dateValidation);
   fill('f-no-offre',c.noOffre); fill('f-d-offre',c.dateOffre); fill('f-no-conf',c.noConfirmation);
   fill('f-montant',c.montant); fill('f-livraison',c.dateLivraison); fill('f-d-pose',c.datePose);
-  fill('f-acompte',c.acompte); fill('f-d-acompte',c.dateAcompte);
-  fill('f-acompte2',c.acompte2); fill('f-d-acompte2',c.dateAcompte2);
-  fill('f-facture',c.facture); fill('f-d-facture',c.dateFacture);
+  fill('f-acompte',c.acompte); fill('f-d-acompte',c.dateAcompte); fill('f-no-fact1',c.noFact1);
+  fill('f-acompte2',c.acompte2); fill('f-d-acompte2',c.dateAcompte2); fill('f-no-fact2',c.noFact2);
+  fill('f-facture',c.facture); fill('f-d-facture',c.dateFacture); fill('f-no-fact-fin',c.noFactFin);
   fill('f-remarques',c.remarques);
   document.getElementById('modal-overlay').classList.add('active');
 }
@@ -1962,9 +1969,9 @@ function saveChantierMeta(e) {
     noOffre: g('f-no-offre'), dateOffre: g('f-d-offre'), noConfirmation: g('f-no-conf'),
     montant: g('f-montant'), matieres: isNew?'':getCh()?.matieres||'',
     dateLivraison: g('f-livraison'), datePose: g('f-d-pose'), pose: isNew?'':getCh()?.pose||'',
-    acompte: g('f-acompte'), dateAcompte: g('f-d-acompte'),
-    acompte2: g('f-acompte2'), dateAcompte2: g('f-d-acompte2'),
-    facture: g('f-facture'), dateFacture: g('f-d-facture'),
+    acompte: g('f-acompte'), dateAcompte: g('f-d-acompte'), noFact1: g('f-no-fact1'),
+    acompte2: g('f-acompte2'), dateAcompte2: g('f-d-acompte2'), noFact2: g('f-no-fact2'),
+    facture: g('f-facture'), dateFacture: g('f-d-facture'), noFactFin: g('f-no-fact-fin'),
     remarques: g('f-remarques'),
     // Préserver statut 'annule' si existant, sinon sera recalculé
     statut: !isNew && getCh()?.statut === 'annule' ? 'annule' : '',
