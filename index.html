@@ -342,7 +342,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
       </select>
       <span class="count-label" id="count-label"></span>
       <div class="toolbar-right" style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 16:00</span>
+        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 16:45</span>
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
         <button class="btn btn-secondary btn-sm" onclick="exportJSON()" title="Sauvegarde complète de toutes les données">💾 Backup JSON</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()" title="Restaurer depuis un fichier backup JSON">↑ Importer JSON</button>
@@ -370,7 +370,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
           <button class="btn btn-ghost btn-sm" onclick="openEditModal()">✏️ Modifier</button>
           <button class="btn btn-ghost btn-sm" onclick="duplicateChantier()" title="Créer un nouveau chantier basé sur celui-ci">⧉ Dupliquer</button>
           <span id="header-statut-badge" style="display:flex;align-items:center;gap:8px">
-            <button id="btn-annule" class="btn btn-sm" style="background:#e74c3c;color:white;font-size:11px;padding:4px 10px" onclick="annulerChantier()" title="Annuler ce chantier">✕ Annuler</button>
+            <button id="btn-annule" class="btn btn-sm" style="background:#e74c3c;color:white;font-size:11px;padding:4px 10px" onclick="annulerChantier()" title="Marquer ce chantier comme annulé (le chantier reste visible dans la liste)">✕ Marquer comme chantier annulé</button>
             <button id="btn-reactiver" class="btn btn-sm" style="background:#27ae60;color:white;font-size:11px;padding:4px 10px;display:none" onclick="reactiverChantier()" title="Réactiver et recalculer le statut">↩ Réactiver</button>
           </span>
         </div>
@@ -1514,6 +1514,21 @@ function renderResume() {
           : (c.calc && c.calc.pvFinal ? ` <span style="font-size:11px;color:#e67e22" title="Différent du prix calculé (${fmtChf(c.calc.pvFinal)})">⚠️ ajusté manuellement</span>` : '');
         return `<div class="info-line"><span class="info-key">Montant TTC</span><span class="info-val"><strong>${fmtChf(c.montant)}</strong>${suffix}</span></div>`;
       })()}
+      ${(()=>{
+        const calc = c.calc;
+        if (!calc?.noConf || calc.montantConfirme === undefined) return '';
+        if (Math.round(calc.pvFinal) === Math.round(calc.montantConfirme)) return '';
+        const diff = calc.pvFinal - calc.montantConfirme;
+        const sign = diff > 0 ? '+' : '−';
+        const absDiff = Math.abs(diff);
+        return `<div class="info-line" style="background:#fff8ec;border:1px solid #f0a500;border-radius:6px;padding:5px 9px;margin:4px 0">
+          <span class="info-key" style="color:#b7650a">⚠️ Montant modifié</span>
+          <span class="info-val" style="color:#b7650a;font-size:12px">
+            Confirmé : <strong>${fmtChf(calc.montantConfirme)}</strong> → Actuel : <strong>${fmtChf(calc.pvFinal)}</strong>
+            <span style="margin-left:4px;font-weight:700">(${sign} ${fmtChf(absDiff)})</span>
+          </span>
+        </div>`;
+      })()}
       ${row('Matières commandées',c.matieres==='oui'?'✓ Oui':c.matieres==='non'?'✗ Non':'')}
       ${(()=>{
         // Livraison : date prévue (modal) + effective (montage) si différentes
@@ -1700,6 +1715,15 @@ function saveCalc(e) {
   const c = getCh(); if (!c) return;
   const eur = parseFloat(document.getElementById('c-prix-eur').value)||0;
   const pvFinal = lastCalcPvFinal || 0;
+  const noConf = document.getElementById('c-no-conf').value.trim();
+  const oldCalc = c.calc || {};
+  // Geler montantConfirme à la première saisie du N° confirmation ; le préserver ensuite
+  let montantConfirme = undefined;
+  if (noConf) {
+    montantConfirme = (oldCalc.noConf && oldCalc.montantConfirme !== undefined)
+      ? oldCalc.montantConfirme  // déjà gelé → on garde
+      : pvFinal;                 // première confirmation → on gèle maintenant
+  }
   c.calc = {
     prixEur:   eur,
     taux:      parseFloat(document.getElementById('c-taux').value)      || 0.965,
@@ -1713,8 +1737,9 @@ function saveCalc(e) {
     pvFinal:   pvFinal,
     noOffre:       document.getElementById('c-no-offre').value.trim(),
     dateOffre:     document.getElementById('c-d-offre').value,
-    noConf:        document.getElementById('c-no-conf').value.trim(),
+    noConf:        noConf,
     dateValidation: document.getElementById('c-d-val').value,
+    montantConfirme: montantConfirme,
   };
   // Synchroniser avec les champs principaux du chantier
   if (pvFinal) c.montant = pvFinal;
