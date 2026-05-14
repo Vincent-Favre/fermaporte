@@ -342,7 +342,7 @@ input[readonly] { background: #f8f9fa; color: var(--text-light); }
       </select>
       <span class="count-label" id="count-label"></span>
       <div class="toolbar-right" style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 16:45</span>
+        <span style="font-size:10px;color:var(--text-light);white-space:nowrap" title="Version de l'application">v2026-05-14 17:00</span>
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
         <button class="btn btn-secondary btn-sm" onclick="exportJSON()" title="Sauvegarde complète de toutes les données">💾 Backup JSON</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()" title="Restaurer depuis un fichier backup JSON">↑ Importer JSON</button>
@@ -1312,10 +1312,27 @@ function switchTab(name, btn) {
 // ════════ STATUT MANUEL (annulé uniquement) ════════
 function annulerChantier() {
   const c = getCh(); if (!c) return;
-  if (!confirm(`Annuler le chantier "${c.client}" ?\nLe statut passera à "Annulé" et ne sera plus recalculé automatiquement.`)) return;
+
+  // Détecter les éléments "lourds" déjà réalisés
+  const alertes = [];
+  if (c.noConfirmation) alertes.push(`• Confirmation client enregistrée (${esc(c.noConfirmation)})`);
+  const cmdPassees = (c.commandes||[]).filter(r => r.commandeDate);
+  if (cmdPassees.length > 0) alertes.push(`• ${cmdPassees.length} commande${cmdPassees.length>1?'s':''} passée${cmdPassees.length>1?'s':''} (${cmdPassees.filter(r=>r.recuLe).length} reçue${cmdPassees.filter(r=>r.recuLe).length>1?'s':''})`);
+  const faireOk = (c.faire||[]).filter(r => r.fait);
+  if (faireOk.length > 0) alertes.push(`• ${faireOk.length} tâche${faireOk.length>1?'s':''} effectuée${faireOk.length>1?'s':''}`);
+  if (c.montage?.sigDate || c.montage?.date) alertes.push(`• Pose ${c.montage.sigDate ? 'réalisée et signée' : 'réalisée'} le ${fmtDate(c.montage.sigDate || c.montage.date)}`);
+
+  let msg;
+  if (alertes.length > 0) {
+    msg = `⚠️ ATTENTION — Ce chantier a déjà des éléments traités :\n\n${alertes.join('\n')}\n\nÊtes-vous sûr de vouloir marquer "${c.client}" comme annulé ?\nLe chantier restera visible mais ne sera plus actif.`;
+  } else {
+    msg = `Marquer le chantier "${c.client}" comme annulé ?\nLe statut passera à "Annulé" et ne sera plus recalculé automatiquement.`;
+  }
+
+  if (!confirm(msg)) return;
   c.statut = 'annule'; c.updated = now();
   save(); applyComputedStatut(c); renderResume();
-  toast('Chantier annulé','error');
+  toast('Chantier marqué comme annulé','error');
 }
 function reactiverChantier() {
   const c = getCh(); if (!c) return;
